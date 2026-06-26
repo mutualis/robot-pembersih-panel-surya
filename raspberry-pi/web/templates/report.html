@@ -1,0 +1,1061 @@
+{% extends "base.html" %} {% block title %}Activity Report - Solar Panel
+Cleaner{% endblock %} {% block extra_css %}
+<style>
+  .report-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+  .report-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .stat-box {
+    background: #fff;
+    padding: 15px;
+    border-left: 3px solid #003d7a;
+    text-align: center;
+  }
+  .stat-box .value {
+    font-size: 28px;
+    font-weight: 700;
+    color: #003d7a;
+  }
+  .stat-box .label {
+    font-size: 11px;
+    color: #666;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+  .log-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+  }
+  .log-table th {
+    background: #003d7a;
+    color: #fff;
+    padding: 10px 12px;
+    text-align: left;
+    font-size: 12px;
+    position: sticky;
+    top: 0;
+  }
+  .log-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #eee;
+    font-size: 12px;
+    vertical-align: top;
+  }
+  .log-table tr:hover {
+    background: #f5f8ff;
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: 10px;
+    font-weight: 600;
+    border-radius: 2px;
+  }
+  .badge-monitoring {
+    background: #e3f2fd;
+    color: #1565c0;
+  }
+  .badge-detection {
+    background: #fff3e0;
+    color: #e65100;
+  }
+  .badge-cleaning {
+    background: #fce4ec;
+    color: #c62828;
+  }
+  .badge-verification {
+    background: #e8f5e9;
+    color: #2e7d32;
+  }
+  .badge-esp32 {
+    background: #f3e5f5;
+    color: #6a1b9a;
+  }
+  .badge-error {
+    background: #ffebee;
+    color: #b71c1c;
+  }
+  .filter-bar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 15px;
+  }
+  .filter-btn {
+    padding: 4px 12px;
+    font-size: 11px;
+    border: 1px solid #ddd;
+    background: #fff;
+    cursor: pointer;
+  }
+  .filter-btn.active {
+    background: #003d7a;
+    color: #fff;
+    border-color: #003d7a;
+  }
+  .table-container {
+    max-height: calc(100vh - 320px);
+    overflow-y: auto;
+    border: 1px solid #ddd;
+  }
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: #999;
+  }
+  @media (max-width: 768px) {
+    .report-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .report-stats {
+      grid-template-columns: 1fr 1fr !important;
+    }
+    .filter-bar {
+      gap: 6px;
+    }
+    .filter-btn {
+      font-size: 10px;
+      padding: 4px 8px;
+    }
+    .log-table {
+      font-size: 11px;
+    }
+    .log-table th,
+    .log-table td {
+      padding: 6px 8px;
+    }
+  }
+</style>
+{% endblock %} {% block content %}
+<div class="report-header">
+  <h2 class="section-title" style="margin: 0">Activity Report</h2>
+  <div style="display: flex; gap: 8px">
+    <button class="btn btn-outline" onclick="refreshLog()">Refresh</button>
+    <button class="btn btn-outline" onclick="exportCSV()">Export CSV</button>
+    <button class="btn btn-danger" onclick="clearLog()">Clear Log</button>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="report-stats">
+  <div class="stat-box">
+    <div class="value" id="statTotal">0</div>
+    <div class="label">Total Event</div>
+  </div>
+  <div class="stat-box">
+    <div class="value" id="statDetections">0</div>
+    <div class="label">Deteksi</div>
+  </div>
+  <div class="stat-box">
+    <div class="value" id="statCleanings">0</div>
+    <div class="label">Pembersihan</div>
+  </div>
+  <div class="stat-box">
+    <div class="value" id="statSuccess">0</div>
+    <div class="label">Berhasil</div>
+  </div>
+  <div class="stat-box">
+    <div class="value" id="statFailed">0</div>
+    <div class="label">Gagal</div>
+  </div>
+</div>
+
+<!-- Filter -->
+<div class="filter-bar">
+  <button
+    class="filter-btn active"
+    data-filter="all"
+    onclick="setFilter('all', this)"
+  >
+    Semua
+  </button>
+  <button
+    class="filter-btn"
+    data-filter="monitoring"
+    onclick="setFilter('monitoring', this)"
+  >
+    Monitoring
+  </button>
+  <button
+    class="filter-btn"
+    data-filter="detection"
+    onclick="setFilter('detection', this)"
+  >
+    Deteksi
+  </button>
+  <button
+    class="filter-btn"
+    data-filter="cleaning"
+    onclick="setFilter('cleaning', this)"
+  >
+    Pembersihan
+  </button>
+  <button
+    class="filter-btn"
+    data-filter="verification"
+    onclick="setFilter('verification', this)"
+  >
+    Verifikasi
+  </button>
+  <button
+    class="filter-btn"
+    data-filter="esp32"
+    onclick="setFilter('esp32', this)"
+  >
+    ESP32
+  </button>
+</div>
+
+<!-- Log Table -->
+<div class="table-container">
+  <table class="log-table" id="logTable">
+    <thead>
+      <tr>
+        <th style="width: 140px">Waktu</th>
+        <th style="width: 100px">Tipe</th>
+        <th>Pesan</th>
+        <th style="width: 180px">Detail</th>
+      </tr>
+    </thead>
+    <tbody id="logBody">
+      <tr>
+        <td colspan="4" class="empty-state">Memuat data...</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ===== Riwayat Siklus Pembersihan ===== -->
+<div class="report-header" style="margin-top: 30px">
+  <h2 class="section-title" style="margin: 0">Riwayat Siklus Pembersihan</h2>
+  <div style="display: flex; gap: 8px">
+    <button class="btn btn-outline" onclick="refreshCleaning()">Refresh</button>
+    <button class="btn btn-outline" onclick="exportCleaning()">Export</button>
+    <button class="btn btn-danger" onclick="clearCleaning()">
+      Hapus Riwayat
+    </button>
+  </div>
+</div>
+
+<!-- Ringkasan per level -->
+<div class="report-stats" id="cleaningSummary"></div>
+<div id="cleaningExportLinks" style="margin: 8px 0; font-size: 13px"></div>
+
+<div class="table-container" style="max-height: none">
+  <table class="log-table" id="cleaningTable">
+    <thead>
+      <tr>
+        <th>Waktu</th>
+        <th>Sesi</th>
+        <th>Level</th>
+        <th>Score Awal</th>
+        <th>Score Akhir</th>
+        <th>Turun</th>
+        <th>Percobaan</th>
+        <th>Durasi</th>
+        <th>Berhasil</th>
+      </tr>
+    </thead>
+    <tbody id="cleaningBody">
+      <tr>
+        <td colspan="9" class="empty-state">Belum ada siklus pembersihan.</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ===== Uji Keandalan Komunikasi Serial (UART) ===== -->
+<div class="report-header" style="margin-top: 30px">
+  <h2 class="section-title" style="margin: 0">
+    Uji Keandalan Komunikasi Serial
+  </h2>
+</div>
+<div
+  style="
+    background: #fff;
+    border: 1px solid #ddd;
+    padding: 16px;
+    margin-bottom: 20px;
+  "
+>
+  <p style="color: #666; font-size: 13px; margin: 0 0 14px">
+    Mengirim N perintah <code>status</code> ke ESP32 dan mengukur round-trip
+    time (RTT) tiap perintah. Diblokir saat pembersihan berjalan. Membutuhkan
+    ESP32 terhubung.
+  </p>
+  <div style="display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap">
+    <div>
+      <label
+        style="display: block; font-size: 12px; color: #666; margin-bottom: 4px"
+        >Jumlah Perintah</label
+      >
+      <input
+        type="number"
+        id="uartCount"
+        class="config-input"
+        value="100"
+        min="10"
+        max="1000"
+        style="width: 120px"
+      />
+    </div>
+    <button class="btn" id="uartBtn" onclick="startUartTest()">
+      Jalankan Uji
+    </button>
+    <span id="uartStatus" style="color: #666; font-size: 13px"></span>
+  </div>
+  <div
+    id="uartProgressWrap"
+    style="display: none; height: 4px; background: #e0e0e0; margin-top: 14px"
+  >
+    <div
+      id="uartProgress"
+      style="
+        height: 100%;
+        width: 0%;
+        background: #003d7a;
+        transition: width 0.3s;
+      "
+    ></div>
+  </div>
+  <div id="uartResult" style="display: none; margin-top: 16px">
+    <div class="report-stats" style="margin-bottom: 0">
+      <div class="stat-box">
+        <div class="value" id="uartSuccessRate">-</div>
+        <div class="label">Success Rate</div>
+      </div>
+      <div class="stat-box">
+        <div class="value" id="uartReceived">-</div>
+        <div class="label">Diterima / Kirim</div>
+      </div>
+      <div class="stat-box">
+        <div class="value" id="uartRttMean">-</div>
+        <div class="label">RTT Mean (ms)</div>
+      </div>
+      <div class="stat-box">
+        <div class="value" id="uartRttMin">-</div>
+        <div class="label">RTT Min (ms)</div>
+      </div>
+      <div class="stat-box">
+        <div class="value" id="uartRttMax">-</div>
+        <div class="label">RTT Max (ms)</div>
+      </div>
+      <div class="stat-box">
+        <div class="value" id="uartRttStd">-</div>
+        <div class="label">RTT Std (ms)</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="report-header" style="margin-top: 30px">
+  <h2 class="section-title" style="margin: 0">
+    Uji Sistem Komunikasi Jaringan
+  </h2>
+</div>
+<div
+  style="
+    background: #fff;
+    border: 1px solid #ddd;
+    padding: 16px;
+    margin-bottom: 20px;
+  "
+>
+  <p style="color: #666; font-size: 13px; margin: 0 0 14px">
+    Mengukur latensi <code>ping</code> &amp; waktu muat dashboard, serta monitor
+    uptime/downtime. Report (TXT + CSV) otomatis tersimpan dan bisa diunduh di
+    sini atau di halaman Performance (bagian File Hasil).
+  </p>
+  <div style="display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap">
+    <div>
+      <label
+        style="display: block; font-size: 12px; color: #666; margin-bottom: 4px"
+        >Host Cloudflare (opsional)</label
+      >
+      <input
+        id="netCfHost"
+        class="config-input"
+        placeholder="panel.domain.com"
+        style="width: 200px"
+      />
+    </div>
+    <div>
+      <label
+        style="display: block; font-size: 12px; color: #666; margin-bottom: 4px"
+        >IP klien WiFi AP (opsional)</label
+      >
+      <input
+        id="netApClient"
+        class="config-input"
+        placeholder="192.168.4.x"
+        style="width: 150px"
+      />
+    </div>
+    <div>
+      <label
+        style="display: block; font-size: 12px; color: #666; margin-bottom: 4px"
+        >Jumlah ping</label
+      >
+      <input
+        type="number"
+        id="netCount"
+        class="config-input"
+        value="30"
+        min="5"
+        max="200"
+        style="width: 90px"
+      />
+    </div>
+    <button class="btn" id="netBtn" onclick="startNetTest()">
+      Uji Latensi &amp; Beban
+    </button>
+    <span id="netStatus" style="color: #666; font-size: 13px"></span>
+  </div>
+  <div
+    id="netResult"
+    style="display: none; margin-top: 14px; font-size: 13px; line-height: 1.6"
+  ></div>
+
+  <hr style="margin: 16px 0; border: none; border-top: 1px solid #eee" />
+  <div style="display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap">
+    <div>
+      <label
+        style="display: block; font-size: 12px; color: #666; margin-bottom: 4px"
+        >Durasi monitor (menit)</label
+      >
+      <input
+        type="number"
+        id="netUpDur"
+        class="config-input"
+        value="60"
+        min="1"
+        max="1440"
+        style="width: 110px"
+      />
+    </div>
+    <div>
+      <label
+        style="display: block; font-size: 12px; color: #666; margin-bottom: 4px"
+        >Interval cek (detik)</label
+      >
+      <input
+        type="number"
+        id="netUpInt"
+        class="config-input"
+        value="60"
+        min="5"
+        max="300"
+        style="width: 110px"
+      />
+    </div>
+    <button class="btn" id="netUpBtn" onclick="startNetUptime()">
+      Mulai Monitor Uptime
+    </button>
+    <button class="btn" onclick="stopNetUptime()">Stop</button>
+    <span id="netUpStatus" style="color: #666; font-size: 13px"></span>
+  </div>
+  <div
+    id="netUpResult"
+    style="display: none; margin-top: 14px; font-size: 13px; line-height: 1.6"
+  ></div>
+
+  <hr style="margin: 16px 0; border: none; border-top: 1px solid #eee" />
+  <p style="color: #666; font-size: 13px; margin: 0 0 8px">
+    <b>Latensi dari browser ini</b> — paling akurat (bebas firewall ICMP &amp;
+    power-save HP). Buka halaman ini lewat mode yang ingin diukur (AP / WiFi
+    lokal / Cloudflare), pilih label mode, lalu klik ukur.
+  </p>
+  <div style="display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap">
+    <div>
+      <label
+        style="display: block; font-size: 12px; color: #666; margin-bottom: 4px"
+        >Label mode</label
+      >
+      <select id="blMode" class="config-input" style="width: 170px">
+        <option>WiFi AP</option>
+        <option>WiFi Client</option>
+        <option>Cloudflare</option>
+      </select>
+    </div>
+    <button class="btn" id="blBtn" onclick="measureBrowserLatency()">
+      Ukur Latensi dari Browser
+    </button>
+    <span id="blStatus" style="color: #666; font-size: 13px"></span>
+  </div>
+  <div
+    id="blResult"
+    style="display: none; margin-top: 10px; font-size: 13px"
+  ></div>
+</div>
+{% endblock %} {% block extra_js %}
+<script>
+  // ===== Uji Jaringan =====
+  let netPoll = null,
+    netUpPoll = null;
+  function _dl(p) {
+    return "/api/performance/download/" + String(p).replace(/\\/g, "/");
+  }
+
+  async function startNetTest() {
+    const cf = document.getElementById("netCfHost").value.trim();
+    const body = {
+      count: parseInt(document.getElementById("netCount").value) || 30,
+      cloudflare_host: cf,
+      cloudflare_url: cf ? "https://" + cf.replace(/^https?:\/\//, "") : "",
+      ap_client: document.getElementById("netApClient").value.trim(),
+    };
+    const btn = document.getElementById("netBtn");
+    btn.disabled = true;
+    document.getElementById("netStatus").textContent = "Memulai...";
+    try {
+      const r = await fetch("/api/network/test/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const d = await r.json();
+      if (!d.success) {
+        document.getElementById("netStatus").textContent = d.message;
+        btn.disabled = false;
+        return;
+      }
+      document.getElementById("netStatus").textContent =
+        "Berjalan: " + (d.targets || []).join(", ");
+      netPoll = setInterval(pollNetTest, 1000);
+    } catch (e) {
+      document.getElementById("netStatus").textContent = "Error: " + e.message;
+      btn.disabled = false;
+    }
+  }
+  async function pollNetTest() {
+    const r = await fetch("/api/network/test/status");
+    const d = await r.json();
+    document.getElementById("netStatus").textContent =
+      "Progres " + (d.done || 0) + "/" + (d.total || 0);
+    if (!d.running) {
+      clearInterval(netPoll);
+      document.getElementById("netBtn").disabled = false;
+      document.getElementById("netStatus").textContent = d.error
+        ? "Error: " + d.error
+        : "Selesai";
+      if (d.result) renderNetResult(d.result);
+    }
+  }
+  function renderNetResult(res) {
+    const el = document.getElementById("netResult");
+    el.style.display = "block";
+    let h = "<b>Latensi ping:</b><br>";
+    for (const k in res.latency || {}) {
+      const v = res.latency[k];
+      h += `&nbsp;&nbsp;${k}: mean ${v.mean ?? "-"} ms · min ${v.min ?? "-"} · max ${v.max ?? "-"} · std ${v.stdev} · loss ${v.loss_pct}%<br>`;
+    }
+    h += "<b>Waktu muat:</b><br>";
+    for (const k in res.load || {}) {
+      const v = res.load[k];
+      h += `&nbsp;&nbsp;${k}: ${v.load_ms ?? "-"} ms<br>`;
+    }
+    if (res.files)
+      h += `<br>📄 <a href="${_dl(res.files.txt)}">Unduh TXT</a> &nbsp;·&nbsp; <a href="${_dl(res.files.csv)}">Unduh CSV</a>`;
+    el.innerHTML = h;
+  }
+  async function startNetUptime() {
+    const cf = document.getElementById("netCfHost").value.trim();
+    const body = {
+      duration_min: parseFloat(document.getElementById("netUpDur").value) || 60,
+      interval_sec: parseFloat(document.getElementById("netUpInt").value) || 60,
+      cloudflare_host: cf,
+      ap_client: document.getElementById("netApClient").value.trim(),
+    };
+    document.getElementById("netUpStatus").textContent = "Memulai...";
+    try {
+      const r = await fetch("/api/network/uptime/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const d = await r.json();
+      if (!d.success) {
+        document.getElementById("netUpStatus").textContent = d.message;
+        return;
+      }
+      netUpPoll = setInterval(pollNetUptime, 2000);
+    } catch (e) {
+      document.getElementById("netUpStatus").textContent =
+        "Error: " + e.message;
+    }
+  }
+  async function pollNetUptime() {
+    const r = await fetch("/api/network/uptime/status");
+    const d = await r.json();
+    const pct = d.duration ? Math.floor((d.elapsed / d.duration) * 100) : 0;
+    document.getElementById("netUpStatus").textContent =
+      "Berjalan " + pct + "% (" + d.elapsed + "/" + d.duration + " s)";
+    if (!d.running) {
+      clearInterval(netUpPoll);
+      document.getElementById("netUpStatus").textContent = d.error
+        ? "Error: " + d.error
+        : "Selesai";
+      if (d.result) renderNetUptime(d.result);
+    }
+  }
+  function renderNetUptime(res) {
+    const el = document.getElementById("netUpResult");
+    el.style.display = "block";
+    let h = "<b>Uptime/Downtime:</b><br>";
+    const u = res.uptime || {};
+    for (const k in u) {
+      if (k === "_meta") continue;
+      const v = u[k];
+      h += `&nbsp;&nbsp;${k}: uptime ${v.uptime_pct}% · downtime ${v.downtime_min} mnt · gagal ${v.fails}/${v.checks}<br>`;
+    }
+    if (res.files)
+      h += `<br>📄 <a href="${_dl(res.files.txt)}">Unduh TXT</a> &nbsp;·&nbsp; <a href="${_dl(res.files.csv)}">Unduh CSV</a>`;
+    el.innerHTML = h;
+  }
+  async function stopNetUptime() {
+    await fetch("/api/network/uptime/stop", { method: "POST" });
+  }
+
+  async function measureBrowserLatency() {
+    const N = 40;
+    const samples = [];
+    const btn = document.getElementById("blBtn");
+    btn.disabled = true;
+    document.getElementById("blStatus").textContent = "Mengukur...";
+    try {
+      await fetch("/api/ping", { cache: "no-store" });
+    } catch (e) {}
+    for (let i = 0; i < N; i++) {
+      const t0 = performance.now();
+      try {
+        await fetch("/api/ping", { cache: "no-store" });
+      } catch (e) {
+        continue;
+      }
+      samples.push(performance.now() - t0);
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    btn.disabled = false;
+    if (!samples.length) {
+      document.getElementById("blStatus").textContent = "Gagal";
+      return;
+    }
+    samples.sort((a, b) => a - b);
+    const mean = samples.reduce((a, b) => a + b, 0) / samples.length;
+    const min = samples[0],
+      max = samples[samples.length - 1];
+    const std = Math.sqrt(
+      samples.reduce((a, b) => a + (b - mean) ** 2, 0) / samples.length,
+    );
+    const mode = document.getElementById("blMode").value;
+    const stats = {
+      mean: +mean.toFixed(2),
+      min: +min.toFixed(2),
+      max: +max.toFixed(2),
+      std: +std.toFixed(2),
+      n: samples.length,
+    };
+    const el = document.getElementById("blResult");
+    el.style.display = "block";
+    el.innerHTML = `<b>${mode}</b>: mean ${stats.mean} ms · min ${stats.min} · max ${stats.max} · std ${stats.std} (n=${stats.n})`;
+    document.getElementById("blStatus").textContent = "Selesai";
+    try {
+      const r = await fetch("/api/network/browser_latency", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: mode, stats: stats }),
+      });
+      const d = await r.json();
+      if (d.files)
+        el.innerHTML += ` — 📄 <a href="${_dl(d.files.txt)}">Unduh</a>`;
+    } catch (e) {}
+  }
+
+  let allLogs = [];
+  let currentFilter = "all";
+
+  const badgeClass = {
+    monitoring: "badge-monitoring",
+    detection: "badge-detection",
+    cleaning_start: "badge-cleaning",
+    cleaning_fail: "badge-error",
+    verification_success: "badge-verification",
+    verification_fail: "badge-detection",
+    esp32_done: "badge-esp32",
+    esp32_error: "badge-error",
+    error: "badge-error",
+  };
+
+  const badgeLabel = {
+    monitoring: "Monitoring",
+    detection: "Deteksi",
+    cleaning_start: "Pembersihan",
+    cleaning_fail: "Gagal",
+    verification_success: "Berhasil",
+    verification_fail: "Verifikasi",
+    esp32_done: "ESP32 Done",
+    esp32_error: "ESP32 Error",
+    error: "Error",
+  };
+
+  function setFilter(filter, btn) {
+    currentFilter = filter;
+    document
+      .querySelectorAll(".filter-btn")
+      .forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+    renderLog();
+  }
+
+  function renderLog() {
+    const tbody = document.getElementById("logBody");
+    let filtered = allLogs;
+
+    if (currentFilter !== "all") {
+      filtered = allLogs.filter((e) => e.type.startsWith(currentFilter));
+    }
+
+    if (filtered.length === 0) {
+      tbody.innerHTML =
+        '<tr><td colspan="4" class="empty-state">Tidak ada data untuk filter ini</td></tr>';
+      return;
+    }
+
+    // Show newest first
+    const rows = filtered
+      .slice()
+      .reverse()
+      .map((entry) => {
+        const time = new Date(entry.timestamp).toLocaleString("id-ID", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        });
+        const cls = badgeClass[entry.type] || "badge-monitoring";
+        const label = badgeLabel[entry.type] || entry.type;
+
+        let detail = "";
+        if (entry.data) {
+          const d = entry.data;
+          const sc = d.score !== undefined ? d.score : d.score_before;
+          if (sc !== undefined) detail += `Score: ${sc} `;
+          const cat = d.category || d.level;
+          if (cat) detail += `| ${cat} `;
+          if (d.attempts !== undefined && d.attempts !== null)
+            detail += `| ${d.attempts}× `;
+          if (d.duration !== undefined)
+            detail += `| ${(d.duration / 1000).toFixed(1)}s `;
+          else if (d.total_time_s !== undefined)
+            detail += `| ${Number(d.total_time_s).toFixed(1)}s `;
+        }
+
+        return `<tr>
+      <td style="white-space:nowrap; color:#666;">${time}</td>
+      <td><span class="badge ${cls}">${label}</span></td>
+      <td>${entry.message}</td>
+      <td style="color:#888; font-size:11px;">${detail}</td>
+    </tr>`;
+      })
+      .join("");
+
+    tbody.innerHTML = rows;
+  }
+
+  function updateStats() {
+    document.getElementById("statTotal").textContent = allLogs.length;
+    document.getElementById("statDetections").textContent = allLogs.filter(
+      (e) => e.type === "detection",
+    ).length;
+    document.getElementById("statCleanings").textContent = allLogs.filter(
+      (e) => e.type === "cleaning_start",
+    ).length;
+    document.getElementById("statSuccess").textContent = allLogs.filter(
+      (e) => e.type === "verification_success",
+    ).length;
+    document.getElementById("statFailed").textContent = allLogs.filter(
+      (e) => e.type === "verification_fail" || e.type === "cleaning_fail",
+    ).length;
+  }
+
+  async function refreshLog() {
+    try {
+      const r = await fetch("/api/report/log");
+      const data = await r.json();
+      if (data.success) {
+        allLogs = data.log;
+        updateStats();
+        renderLog();
+      }
+    } catch (e) {
+      console.error("Error fetching log:", e);
+    }
+  }
+
+  async function clearLog() {
+    const confirmed = await showDialog(
+      "Konfirmasi",
+      "Hapus semua log aktivitas?",
+    );
+    if (!confirmed) return;
+    await fetch("/api/report/clear", { method: "POST" });
+    allLogs = [];
+    updateStats();
+    renderLog();
+    showToast("Log berhasil dihapus", "success");
+  }
+
+  function exportCSV() {
+    if (allLogs.length === 0) {
+      showToast("Tidak ada data untuk di-export", "error");
+      return;
+    }
+    let csv = "Waktu,Tipe,Pesan,Score,Kategori,Attempts,Duration\n";
+    allLogs.forEach((e) => {
+      const d = e.data || {};
+      const sc =
+        d.score !== undefined
+          ? d.score
+          : d.score_before !== undefined
+            ? d.score_before
+            : "";
+      const cat = d.category || d.level || "";
+      const att =
+        d.attempts !== undefined && d.attempts !== null ? d.attempts : "";
+      let dur = "";
+      if (d.duration !== undefined) dur = (d.duration / 1000).toFixed(1);
+      else if (d.total_time_s !== undefined)
+        dur = Number(d.total_time_s).toFixed(1);
+      csv += `"${e.timestamp}","${e.type}","${e.message}",${sc},${cat},${att},${dur}\n`;
+    });
+    const blob = new Blob([csv], { type: "text/csv" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `report_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+  }
+
+  // ===== Riwayat Siklus Pembersihan =====
+  async function refreshCleaning() {
+    try {
+      const r = await fetch("/api/cleaning/sessions");
+      const data = await r.json();
+      if (!data.success) return;
+      renderCleaningSummary(data.summary);
+      renderCleaningTable(data.sessions);
+    } catch (e) {
+      console.error("Error fetching cleaning sessions:", e);
+    }
+  }
+
+  function renderCleaningSummary(summary) {
+    const el = document.getElementById("cleaningSummary");
+    if (!summary || !summary.total_sessions) {
+      el.innerHTML = "";
+      return;
+    }
+    const levels = summary.per_level || {};
+    let html = `
+      <div class="stat-box">
+        <div class="value">${summary.total_sessions}</div>
+        <div class="label">Total Sesi</div>
+      </div>
+      <div class="stat-box">
+        <div class="value">${summary.overall_success_rate}%</div>
+        <div class="label">Success Rate</div>
+      </div>`;
+    ["ringan", "sedang", "berat"].forEach((lvl) => {
+      const d = levels[lvl];
+      if (d) {
+        html += `
+          <div class="stat-box">
+            <div class="value">${d.avg_attempts}</div>
+            <div class="label">${lvl}: avg attempt</div>
+          </div>`;
+      }
+    });
+    el.innerHTML = html;
+  }
+
+  function renderCleaningTable(sessions) {
+    const tbody = document.getElementById("cleaningBody");
+    if (!sessions || sessions.length === 0) {
+      tbody.innerHTML =
+        '<tr><td colspan="9" class="empty-state">Belum ada siklus pembersihan.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = sessions
+      .slice()
+      .reverse()
+      .map((s) => {
+        const dt = new Date(s.timestamp);
+        const when = isNaN(dt) ? s.timestamp : dt.toLocaleString("id-ID");
+        const ok = ["ya", "true", "1"].includes(
+          String(s.success).toLowerCase(),
+        );
+        const okBadge = ok
+          ? '<span class="badge badge-verification">Ya</span>'
+          : '<span class="badge badge-error">Tidak</span>';
+        return `<tr>
+          <td style="white-space:nowrap;color:#666">${when}</td>
+          <td>${s.time_of_day || "-"}</td>
+          <td>${s.level || "-"}</td>
+          <td>${s.score_before ?? "-"}</td>
+          <td>${s.score_after ?? "-"}</td>
+          <td>${s.score_drop_pct ?? "-"}%</td>
+          <td>${s.attempts ?? "-"}/${s.max_attempts ?? 5}</td>
+          <td>${s.total_time_s ?? "-"} s</td>
+          <td>${okBadge}</td>
+        </tr>`;
+      })
+      .join("");
+  }
+
+  async function exportCleaning() {
+    try {
+      const r = await fetch("/api/cleaning/export", { method: "POST" });
+      const data = await r.json();
+      if (data.success) {
+        showToast("Laporan pembersihan diekspor", "success");
+        // Tampilkan link unduh ke file hasil (CSV/JSON/TXT)
+        const box = document.getElementById("cleaningExportLinks");
+        if (box && data.files) {
+          const dl = (p) =>
+            "/api/cleaning/download/" +
+            encodeURI(String(p).replace(/\\/g, "/"));
+          const parts = [];
+          if (data.files.csv)
+            parts.push(`<a href="${dl(data.files.csv)}">Unduh CSV</a>`);
+          if (data.files.json)
+            parts.push(`<a href="${dl(data.files.json)}">Unduh JSON</a>`);
+          if (data.files.txt)
+            parts.push(`<a href="${dl(data.files.txt)}">Unduh TXT</a>`);
+          box.innerHTML = "Unduh hasil: " + parts.join(" &nbsp;|&nbsp; ");
+        }
+      } else {
+        showToast("Gagal: " + (data.message || ""), "error");
+      }
+    } catch (e) {
+      showToast("Error: " + e.message, "error");
+    }
+  }
+
+  async function clearCleaning() {
+    const ok = await showDialog(
+      "Hapus Riwayat Pembersihan",
+      "Hapus seluruh riwayat siklus pembersihan secara permanen?",
+    );
+    if (!ok) return;
+    try {
+      const r = await fetch("/api/cleaning/clear", { method: "POST" });
+      const data = await r.json();
+      if (data.success) {
+        showToast(`${data.removed} sesi dihapus`, "success");
+        refreshCleaning();
+      } else {
+        showToast("Gagal: " + (data.message || ""), "error");
+      }
+    } catch (e) {
+      showToast("Error: " + e.message, "error");
+    }
+  }
+
+  // ===== Uji Keandalan UART =====
+  let uartPollTimer = null;
+
+  async function startUartTest() {
+    const count = parseInt(document.getElementById("uartCount").value) || 100;
+    const btn = document.getElementById("uartBtn");
+    btn.disabled = true;
+    document.getElementById("uartStatus").textContent = "Memulai...";
+    document.getElementById("uartResult").style.display = "none";
+    document.getElementById("uartProgressWrap").style.display = "block";
+    document.getElementById("uartProgress").style.width = "0%";
+
+    try {
+      const r = await fetch("/api/serial/reliability/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ count: count }),
+      });
+      const data = await r.json();
+      if (!data.success) {
+        showToast("Uji UART: " + (data.message || "gagal"), "error");
+        btn.disabled = false;
+        document.getElementById("uartStatus").textContent = "";
+        document.getElementById("uartProgressWrap").style.display = "none";
+        return;
+      }
+      document.getElementById("uartStatus").textContent = "Berjalan...";
+      uartPollTimer = setInterval(pollUartTest, 1000);
+    } catch (e) {
+      showToast("Error: " + e.message, "error");
+      btn.disabled = false;
+    }
+  }
+
+  async function pollUartTest() {
+    try {
+      const r = await fetch("/api/serial/reliability/status");
+      const data = await r.json();
+      const pct =
+        data.total > 0 ? Math.round((data.done / data.total) * 100) : 0;
+      document.getElementById("uartProgress").style.width = pct + "%";
+      document.getElementById("uartStatus").textContent = data.running
+        ? `Berjalan... ${data.done}/${data.total}`
+        : "Selesai";
+
+      if (!data.running) {
+        clearInterval(uartPollTimer);
+        document.getElementById("uartBtn").disabled = false;
+        if (data.error) {
+          showToast("Uji UART gagal: " + data.error, "error");
+          document.getElementById("uartStatus").textContent = "Gagal";
+        } else if (data.result) {
+          showUartResult(data.result);
+          showToast("Uji UART selesai!", "success");
+        }
+      }
+    } catch (e) {
+      clearInterval(uartPollTimer);
+      document.getElementById("uartBtn").disabled = false;
+    }
+  }
+
+  function showUartResult(res) {
+    const set = (id, v) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = v === undefined || v === null ? "-" : v;
+    };
+    set("uartSuccessRate", (res.success_rate ?? 0) + "%");
+    set("uartReceived", `${res.received ?? 0} / ${res.sent ?? 0}`);
+    const rtt = res.rtt_ms || {};
+    set("uartRttMean", rtt.mean ?? "-");
+    set("uartRttMin", rtt.min ?? "-");
+    set("uartRttMax", rtt.max ?? "-");
+    set("uartRttStd", rtt.stdev ?? "-");
+    document.getElementById("uartResult").style.display = "block";
+  }
+
+  // Auto refresh every 10 seconds
+  document.addEventListener("DOMContentLoaded", () => {
+    refreshLog();
+    refreshCleaning();
+    setInterval(refreshLog, 10000);
+    setInterval(refreshCleaning, 15000);
+  });
+</script>
+{% endblock %}

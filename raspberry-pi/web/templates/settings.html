@@ -1,0 +1,803 @@
+{% extends "base.html" %} {% block title %}Settings - Solar Panel Cleaner{%
+endblock %} {% block extra_css %}
+<style>
+  .settings-section {
+    background: #fff;
+    border-left: 3px solid #003d7a;
+    padding: 18px 20px;
+    margin-bottom: 20px;
+  }
+  .settings-section h2 {
+    font-size: 16px;
+    color: #003d7a;
+    margin: 0 0 4px 0;
+  }
+  .settings-section .desc {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 16px;
+  }
+  .wifi-current {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #f5f8ff;
+    padding: 12px 15px;
+    margin-bottom: 16px;
+    font-size: 13px;
+  }
+  .wifi-current .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #ccc;
+    flex-shrink: 0;
+  }
+  .wifi-current .dot.on {
+    background: #2e9e4f;
+    box-shadow: 0 0 6px #2e9e4f;
+  }
+  .wifi-current .info {
+    flex: 1;
+  }
+  .wifi-current .ssid {
+    font-weight: 700;
+    color: #003d7a;
+  }
+  .wifi-current .meta {
+    color: #777;
+    font-size: 11px;
+    margin-top: 2px;
+  }
+  .wifi-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 320px;
+    overflow-y: auto;
+    border: 1px solid #eee;
+  }
+  .wifi-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .wifi-item:last-child {
+    border-bottom: none;
+  }
+  .wifi-item:hover {
+    background: #f5f8ff;
+  }
+  .wifi-item.connected {
+    background: #eef7f0;
+  }
+  .wifi-item .name {
+    flex: 1;
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
+  }
+  .wifi-item .lock {
+    font-size: 11px;
+    color: #999;
+  }
+  .wifi-item .bars {
+    font-size: 11px;
+    color: #003d7a;
+    font-weight: 700;
+    min-width: 42px;
+    text-align: right;
+  }
+  .wifi-item .tag {
+    font-size: 10px;
+    background: #2e9e4f;
+    color: #fff;
+    padding: 1px 7px;
+    border-radius: 2px;
+  }
+  .btn-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  /* Gunakan komponen .btn global (flat, tanpa border-radius).
+     Hanya tambahkan varian 'secondary' di sini. */
+  .btn.secondary {
+    background: #6c757d;
+    border-color: #6c757d;
+  }
+  .btn.secondary:hover {
+    background: #5a6268;
+    border-color: #5a6268;
+  }
+  .note {
+    font-size: 12px;
+    color: #856404;
+    background: #fff3cd;
+    border: 1px solid #ffeeba;
+    padding: 10px 14px;
+    margin-top: 8px;
+  }
+  .saved-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #eef2f7;
+    border: 1px solid #d6dee8;
+    padding: 4px 10px;
+    font-size: 12px;
+    margin: 0 6px 6px 0;
+  }
+  .saved-chip button {
+    background: none;
+    border: none;
+    color: #c0392b;
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1;
+  }
+  .conn-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+  }
+  .conn-card {
+    border: 1px solid #e3e8ef;
+    border-left: 4px solid #c2cbd6;
+    padding: 14px 16px;
+    background: #fafbfc;
+  }
+  .conn-card.active {
+    border-color: #2e9e4f;
+    background: #eef7f0;
+  }
+  .conn-card .conn-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    font-size: 14px;
+    color: #003d7a;
+  }
+  .conn-card .conn-state {
+    font-size: 12px;
+    margin-top: 6px;
+    color: #555;
+  }
+  .conn-card .conn-ip {
+    font-family: "Consolas", monospace;
+    font-size: 12px;
+    color: #333;
+    margin-top: 4px;
+  }
+  .conn-card .primary-tag {
+    font-size: 10px;
+    background: #2e9e4f;
+    color: #fff;
+    padding: 1px 8px;
+    border-radius: 2px;
+    margin-left: auto;
+  }
+  .ap-form label {
+    display: block;
+    font-size: 12px;
+    color: #555;
+    margin: 10px 0 4px;
+  }
+  .ap-form input[type="text"],
+  .ap-form input[type="password"] {
+    width: 100%;
+    padding: 10px;
+    border: 2px solid #ddd;
+    font-size: 14px;
+    box-sizing: border-box;
+    color: #003d7a;
+    font-weight: 600;
+    outline: none;
+  }
+  .ap-form input[type="text"]:focus,
+  .ap-form input[type="password"]:focus {
+    border-color: #003d7a;
+  }
+  .ap-pass-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .ap-pass-row > input[type="password"],
+  .ap-pass-row > input[type="text"] {
+    flex: 1;
+  }
+  .ap-show {
+    white-space: nowrap;
+    margin: 0 !important;
+  }
+  .ap-meta {
+    font-size: 11px;
+    color: #888;
+    margin-top: 8px;
+  }
+  /* Info AP saat ini — kartu ringkas yang mudah dibaca */
+  .ap-current {
+    background: #f5f8ff;
+    border: 1px solid #d6e0ef;
+    border-left: 4px solid #003d7a;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+  }
+  .ap-current-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 5px 0;
+    font-size: 13px;
+  }
+  .ap-current-row + .ap-current-row {
+    border-top: 1px solid #e6ecf5;
+  }
+  .ap-current-label {
+    color: #6c757d;
+    min-width: 110px;
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.3px;
+  }
+  .ap-current-value {
+    font-weight: 700;
+    color: #003d7a;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: "Consolas", monospace;
+  }
+  .ap-eye,
+  .ap-copy {
+    background: #fff;
+    border: 1px solid #c2cbd6;
+    color: #003d7a;
+    cursor: pointer;
+    font-size: 11px;
+    padding: 2px 8px;
+    font-family: inherit;
+  }
+  .ap-eye:hover,
+  .ap-copy:hover {
+    background: #003d7a;
+    color: #fff;
+  }
+  /* Daftar alamat akses web */
+  .access-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border: 1px solid #e3e8ef;
+    border-left: 4px solid #003d7a;
+    background: #fafbfc;
+    margin-bottom: 8px;
+  }
+  .access-item.primary {
+    border-left-color: #2e9e4f;
+    background: #eef7f0;
+  }
+  .access-info {
+    flex: 1;
+    min-width: 0;
+  }
+  .access-label {
+    font-size: 11px;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .access-url {
+    font-family: "Consolas", monospace;
+    font-size: 14px;
+    font-weight: 700;
+    color: #003d7a;
+    word-break: break-all;
+  }
+  .access-note {
+    font-size: 11px;
+    color: #888;
+    margin-top: 2px;
+  }
+  .access-tag {
+    font-size: 10px;
+    background: #2e9e4f;
+    color: #fff;
+    padding: 1px 8px;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+  /* Manajemen model */
+  .model-upload-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .model-select {
+    width: auto;
+    flex: 1;
+    min-width: 200px;
+    font-size: 13px;
+    font-weight: 400;
+    padding: 8px 10px;
+  }
+  .model-file {
+    flex: 1;
+    min-width: 180px;
+    font-size: 12px;
+  }
+  /* File picker bertema (sembunyikan input native) */
+  .file-picker {
+    display: flex;
+    align-items: stretch;
+    flex: 2;
+    min-width: 240px;
+    border: 2px solid #ddd;
+    background: #fff;
+    cursor: pointer;
+    overflow: hidden;
+  }
+  .file-picker:hover {
+    border-color: #bbb;
+  }
+  .file-picker-btn {
+    background: #003d7a;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 16px;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+  }
+  .file-picker:hover .file-picker-btn {
+    background: #002a5c;
+  }
+  .file-picker-name {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: #6c757d;
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .file-picker-name.has-file {
+    color: #003d7a;
+    font-weight: 600;
+    font-family: "Consolas", monospace;
+  }
+  .model-progress {
+    font-size: 12px;
+    color: #003d7a;
+    margin-top: 8px;
+  }
+  .model-stage-block {
+    margin-top: 18px;
+  }
+  .model-stage-title {
+    font-size: 12px;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin: 0 0 8px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 4px;
+  }
+  .model-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    border: 1px solid #e3e8ef;
+    border-left: 4px solid #c2cbd6;
+    background: #fafbfc;
+    margin-bottom: 6px;
+  }
+  .model-item.active {
+    border-left-color: #2e9e4f;
+    background: #eef7f0;
+  }
+  .model-item .m-info {
+    flex: 1;
+    min-width: 0;
+  }
+  .model-item .m-name {
+    font-family: "Consolas", monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: #003d7a;
+    word-break: break-all;
+  }
+  .model-item .m-meta {
+    font-size: 11px;
+    color: #888;
+    margin-top: 2px;
+  }
+  .model-item .m-tag {
+    font-size: 10px;
+    background: #2e9e4f;
+    color: #fff;
+    padding: 1px 8px;
+    white-space: nowrap;
+  }
+  .m-btn {
+    background: #fff;
+    border: 1px solid #c2cbd6;
+    color: #003d7a;
+    cursor: pointer;
+    font-size: 11px;
+    padding: 4px 10px;
+    white-space: nowrap;
+  }
+  .m-btn:hover {
+    background: #003d7a;
+    color: #fff;
+  }
+  .m-btn.danger {
+    color: #c0392b;
+    border-color: #e2b6b1;
+  }
+  .m-btn.danger:hover {
+    background: #c0392b;
+    color: #fff;
+    border-color: #c0392b;
+  }
+  .m-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  /* Mode view-only: redupkan daftar WiFi & form AP agar terlihat non-aktif */
+  body.is-viewer .wifi-item {
+    opacity: 0.65;
+    cursor: not-allowed;
+  }
+  body.is-viewer .saved-chip button {
+    display: none;
+  }
+  body.is-viewer .ap-form input {
+    background: #f1f3f5;
+    color: #888;
+    pointer-events: none;
+  }
+</style>
+{% endblock %} {% block content %}
+<div class="settings-section">
+  <h2>Status Koneksi Jaringan</h2>
+  <p class="desc">
+    Cara Raspberry Pi terhubung ke jaringan saat ini (kabel LAN atau WiFi).
+  </p>
+  <div id="connBox" class="conn-grid">
+    <div style="font-size: 12px; color: #999">Memeriksa koneksi...</div>
+  </div>
+</div>
+
+<div class="settings-section">
+  <h2>Alamat Akses Web</h2>
+  <p class="desc">
+    Alamat untuk membuka antarmuka ini dari perangkat lain. Hanya alamat yang
+    sedang aktif yang ditampilkan.
+  </p>
+  <div id="accessList">
+    <div style="font-size: 12px; color: #999">Memuat alamat…</div>
+  </div>
+</div>
+
+<div class="settings-section">
+  <h2>Koneksi ESP32 (Port Serial)</h2>
+  <p class="desc">
+    Pilih dan uji port komunikasi ke ESP32. Mode
+    <strong>Auto</strong> mendeteksi port (GPIO UART atau USB) otomatis lewat
+    handshake. Uji port dulu sebelum menyimpan untuk meminimalkan kegagalan saat
+    operasi.
+  </p>
+
+  <div class="esp32-port-status" id="portStatusBox">
+    <div style="font-size: 12px; color: #999">Memuat status port…</div>
+  </div>
+
+  <div class="config-row" style="margin-top: 14px">
+    <label class="config-label" for="portSelect">Port</label>
+    <select id="portSelect" class="config-input">
+      <option value="auto">Auto (deteksi otomatis)</option>
+    </select>
+  </div>
+
+  <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px">
+    <button class="btn btn-outline" onclick="refreshPorts()">
+      Refresh Daftar
+    </button>
+    <button
+      class="btn btn-outline"
+      id="testPortBtn"
+      onclick="testSelectedPort()"
+    >
+      Uji Port
+    </button>
+    <button class="btn" id="savePortBtn" onclick="saveSelectedPort()">
+      Simpan &amp; Hubungkan
+    </button>
+  </div>
+
+  <div
+    id="portTestResult"
+    class="note"
+    style="display: none; margin-top: 12px"
+  ></div>
+</div>
+
+<div class="settings-section">
+  <h2>Konfigurasi WiFi (Client)</h2>
+
+  <div class="wifi-current" id="wifiCurrent">
+    <span class="dot" id="wifiDot"></span>
+    <div class="info">
+      <div class="ssid" id="wifiSsid">Memeriksa koneksi...</div>
+      <div class="meta" id="wifiMeta"></div>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn" id="btnScan" onclick="scanWifi()">Scan WiFi</button>
+    <button class="btn secondary" onclick="refreshStatus()">
+      Refresh Status
+    </button>
+  </div>
+
+  <ul class="wifi-list" id="wifiList">
+    <li class="wifi-item">
+      <span class="name">Klik "Scan WiFi" untuk mulai</span>
+    </li>
+  </ul>
+
+  <div class="note">
+    Saat mengganti WiFi, koneksi internet sempat terputus beberapa detik. Jika
+    Anda terhubung lewat WiFi AP robot (192.168.50.1), halaman ini tetap bisa
+    diakses.
+  </div>
+</div>
+
+<div class="settings-section">
+  <h2>Captive Portal (Login WiFi Kampus)</h2>
+  <p class="desc">
+    Jika WiFi kampus memerlukan login lewat browser, sistem mendeteksi otomatis
+    dan membuka halaman loginnya.
+  </p>
+
+  <div id="captiveStatusBox" style="margin-bottom:14px">
+    <div style="font-size:12px;color:#999">Mendeteksi captive portal...</div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn secondary" id="btnOpenPortal" onclick="openPortalPage()" style="display:none">
+      Buka Halaman Login
+    </button>
+    <button class="btn secondary" onclick="checkCaptiveStatus()">Cek Ulang</button>
+  </div>
+</div>
+
+<div class="settings-section">
+  <h2>Profil WiFi Tersimpan</h2>
+  <p class="desc">
+    Jaringan yang pernah disambungkan akan tersimpan dan otomatis terhubung
+    kembali bila tersedia. Hapus profil yang tidak diperlukan.
+  </p>
+  <div id="savedList">
+    <span style="font-size: 12px; color: #999">Memuat...</span>
+  </div>
+</div>
+
+<div class="settings-section">
+  <h2>Konfigurasi WiFi AP (Hotspot Robot)</h2>
+  <p class="desc">
+    Ubah nama (SSID) dan password WiFi hotspot robot. Setelah disimpan, AP akan
+    restart — perangkat yang terhubung perlu menyambung ulang ke SSID baru.
+    Memerlukan login admin.
+  </p>
+
+  <!-- Info AP saat ini (mudah dibaca) -->
+  <div class="ap-current" id="apCurrent">
+    <div class="ap-current-row">
+      <span class="ap-current-label">Nama WiFi AP</span>
+      <span class="ap-current-value" id="apCurSsid">memuat...</span>
+    </div>
+    <div class="ap-current-row">
+      <span class="ap-current-label">Password</span>
+      <span class="ap-current-value">
+        <span id="apCurPass">••••••••</span>
+        <button
+          type="button"
+          class="ap-eye"
+          id="apCurToggle"
+          title="Lihat/sembunyikan password"
+        >
+          👁
+        </button>
+        <button
+          type="button"
+          class="ap-copy"
+          id="apCurCopy"
+          title="Salin password"
+        >
+          Salin
+        </button>
+      </span>
+    </div>
+    <div class="ap-current-row">
+      <span class="ap-current-label">Channel</span>
+      <span class="ap-current-value" id="apCurChannel">—</span>
+    </div>
+  </div>
+
+  <div class="ap-form">
+    <label>Nama WiFi AP (SSID)</label>
+    <input
+      type="text"
+      id="apSsid"
+      maxlength="32"
+      placeholder="SolarPanelCleaner"
+    />
+    <label>Password AP</label>
+    <div class="ap-pass-row">
+      <input
+        type="password"
+        id="apPass"
+        maxlength="63"
+        placeholder="Min. 8 karakter"
+      />
+      <label class="ugm-check ap-show">
+        <input type="checkbox" id="apShowPass" /> Lihat
+      </label>
+    </div>
+    <div class="ap-meta" id="apChannel"></div>
+    <div class="btn-row" style="margin-top: 14px">
+      <button class="btn" id="btnApSave" onclick="saveApConfig()">
+        Simpan & Restart AP
+      </button>
+      <button class="btn secondary" onclick="loadApConfig()">Muat Ulang</button>
+    </div>
+    <div class="note">
+      Saat AP restart, jika Anda terhubung lewat hotspot robot, koneksi sempat
+      terputus beberapa detik. Sambungkan kembali ke SSID baru lalu buka ulang
+      halaman ini.
+    </div>
+  </div>
+</div>
+
+<div class="settings-section">
+  <h2>Manajemen Model YOLO</h2>
+  <p class="desc">
+    Upload, pilih, dan hapus model deteksi (Stage 1 — panel) dan klasifikasi
+    (Stage 2 — kekotoran). Model aktif langsung dipakai tanpa restart.
+  </p>
+
+  <!-- Upload -->
+  <div class="model-upload">
+    <div class="model-upload-row">
+      <select id="modelStage" class="config-input model-select">
+        <option value="detection">Stage 1 — Deteksi Panel</option>
+        <option value="classification">Stage 2 — Klasifikasi Kekotoran</option>
+      </select>
+      <label class="file-picker" for="modelFile">
+        <span class="file-picker-btn">Pilih File .pt</span>
+        <span class="file-picker-name" id="modelFileName"
+          >Belum ada file dipilih</span
+        >
+        <input type="file" id="modelFile" accept=".pt" hidden />
+      </label>
+      <button class="btn" id="btnModelUpload" onclick="uploadModel()">
+        Upload
+      </button>
+    </div>
+    <div class="note" style="margin-top: 8px">
+      File harus berformat <strong>.pt</strong> (YOLO). Jenis model diverifikasi
+      otomatis dan dicocokkan dengan stage yang dipilih.
+    </div>
+    <div id="modelUploadProgress" class="model-progress hidden"></div>
+  </div>
+
+  <!-- Daftar model -->
+  <div class="model-stage-block">
+    <h3 class="model-stage-title">Stage 1 — Deteksi Panel</h3>
+    <div id="modelListDetection">
+      <div style="font-size: 12px; color: #999">Memuat…</div>
+    </div>
+  </div>
+  <div class="model-stage-block">
+    <h3 class="model-stage-title">Stage 2 — Klasifikasi Kekotoran</h3>
+    <div id="modelListClassification">
+      <div style="font-size: 12px; color: #999">Memuat…</div>
+    </div>
+  </div>
+</div>
+
+<div class="settings-section">
+  <h2>Konfigurasi Operasional</h2>
+  <p class="desc">
+    Atur batas pembersihan berturut-turut, jeda antar siklus deteksi
+    (<em>cooldown</em>), dan jam kerja pemantauan otomatis. Perubahan langsung
+    berlaku; jika <em>cooldown</em> sedang berjalan, durasi baru diterapkan pada
+    siklus berikutnya.
+  </p>
+
+  <div class="ap-form">
+    <label>Max Attempts (maksimal pembersihan berturut-turut)</label>
+    <input
+      type="text"
+      id="maxAttemptsInput"
+      inputmode="numeric"
+      placeholder="5"
+    />
+
+    <label>Cooldown (detik — jeda antar siklus deteksi)</label>
+    <input
+      type="text"
+      id="cooldownInput"
+      inputmode="numeric"
+      placeholder="300"
+    />
+
+    <label>Jam Kerja Monitoring</label>
+    <p class="ap-meta" style="margin-top: 0">
+      Di luar rentang ini sistem tidak memantau/membersihkan.
+    </p>
+    <div style="display: flex; gap: 12px">
+      <div style="flex: 1">
+        <label style="margin-top: 4px">Mulai</label>
+        <input type="time" id="whStartInput" value="07:00" />
+      </div>
+      <div style="flex: 1">
+        <label style="margin-top: 4px">Selesai</label>
+        <input type="time" id="whStopInput" value="17:00" />
+      </div>
+    </div>
+
+    <div class="btn-row" style="margin-top: 16px">
+      <button
+        class="btn"
+        id="btnOpConfigSave"
+        onclick="saveOperationalConfig()"
+      >
+        Simpan Konfigurasi
+      </button>
+      <button class="btn secondary" onclick="loadOperationalConfig()">
+        Muat Ulang
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="settings-section">
+  <h2>Sistem</h2>
+  <p class="desc">
+    Restart aplikasi atau reboot Raspberry Pi dari jarak jauh. Memerlukan
+    konfirmasi password admin. Dinonaktifkan saat pembersihan berlangsung.
+  </p>
+  <div class="btn-row">
+    <button class="btn secondary" onclick="systemRestartApp()">
+      Restart Aplikasi
+    </button>
+    <button class="btn btn-danger" onclick="systemReboot()">
+      Reboot Raspberry Pi
+    </button>
+  </div>
+  <div class="note">
+    Sebelum eksekusi, sistem mengirim perintah berhenti ke ESP32 agar motor dan
+    pompa mati dengan aman.
+  </div>
+</div>
+{% endblock %} {% block extra_js %}
+<script src="/static/js/settings.js?v=2.2"></script>
+{% endblock %}

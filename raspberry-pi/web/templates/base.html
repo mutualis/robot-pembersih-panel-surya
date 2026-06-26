@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Cache-Control"
+      content="no-cache, no-store, must-revalidate"
+    />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <title>{% block title %}Solar Panel Cleaner - UGM{% endblock %}</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+    <link rel="alternate icon" href="/static/logo-ugm.png" />
+    <link rel="apple-touch-icon" href="/static/icon-192.png" />
+    <!-- PWA -->
+    <link rel="manifest" href="/static/manifest.webmanifest" />
+    <meta name="theme-color" content="#003d7a" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <meta name="apple-mobile-web-app-title" content="SolarCleaner" />
+    <link rel="stylesheet" href="/static/css/main.css?v=4.8" />
+    {% block extra_css %}{% endblock %}
+  </head>
+  <body>
+    <div class="container">
+      <!-- Header -->
+      <div class="header">
+        <img src="/static/logo-ugm.png" alt="Logo UGM" class="logo" />
+        <div class="header-text">
+          <h1>Solar Panel Cleaner</h1>
+          <p class="subtitle">Muhammad Ridho Assidiqi - 22/505759/SV/21913</p>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <div class="nav-tabs">
+        <button
+          class="nav-tab {% if active_page == 'dashboard' %}active{% endif %}"
+          onclick="window.location.href = '/'"
+        >
+          Dashboard
+        </button>
+        <button
+          class="nav-tab admin-only {% if active_page == 'testing' %}active{% endif %}"
+          onclick="window.location.href = '/testing'"
+        >
+          System Testing
+        </button>
+        <button
+          class="nav-tab {% if active_page == 'performance' %}active{% endif %}"
+          onclick="window.location.href = '/performance'"
+        >
+          Performance
+        </button>
+        <button
+          class="nav-tab {% if active_page == 'report' %}active{% endif %}"
+          onclick="window.location.href = '/report'"
+        >
+          Report
+        </button>
+        <button
+          class="nav-tab admin-only {% if active_page == 'settings' %}active{% endif %}"
+          onclick="window.location.href = '/settings'"
+        >
+          Settings
+        </button>
+        <span id="authBox" class="auth-box" style="margin-left: auto"></span>
+        <span
+          id="liveClock"
+          style="
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 13px;
+            font-family: &quot;Consolas&quot;, monospace;
+            padding: 0 15px;
+            display: flex;
+            align-items: center;
+          "
+        ></span>
+      </div>
+
+      <!-- Content -->
+      <div class="content">{% block content %}{% endblock %}</div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Custom Dialog -->
+    <div class="dialog-overlay" id="dialogOverlay">
+      <div class="dialog-box">
+        <div class="dialog-header" id="dialogTitle">Konfirmasi</div>
+        <div class="dialog-body" id="dialogMessage">Apakah Anda yakin?</div>
+        <div class="dialog-footer">
+          <button
+            class="dialog-btn dialog-btn-cancel"
+            onclick="closeDialog(false)"
+          >
+            Batal
+          </button>
+          <button class="dialog-btn" onclick="closeDialog(true)">OK</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/static/js/auth.js?v=4.5"></script>
+    <script src="/static/js/websocket.js?v=4.0"></script>
+    <script src="/static/js/main.js?v=4.6"></script>
+    <script>
+      (function () {
+        function updateClock() {
+          const el = document.getElementById("liveClock");
+          if (!el) return;
+          const now = new Date();
+          const days = [
+            "Minggu",
+            "Senin",
+            "Selasa",
+            "Rabu",
+            "Kamis",
+            "Jumat",
+            "Sabtu",
+          ];
+          const day = days[now.getDay()];
+          const date = now.toLocaleDateString("id-ID", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          });
+          const time = now.toLocaleTimeString("id-ID", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          });
+          el.textContent = `${day}, ${date} — ${time}`;
+        }
+        updateClock();
+        setInterval(updateClock, 1000);
+      })();
+    </script>
+    <script>
+      // Registrasi Service Worker untuk PWA (installable di HP).
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", function () {
+          navigator.serviceWorker
+            .register("/sw.js", { scope: "/" })
+            .catch(function (err) {
+              console.warn("Service worker gagal didaftarkan:", err);
+            });
+        });
+      }
+    </script>
+    {% block extra_js %}{% endblock %}
+  </body>
+</html>

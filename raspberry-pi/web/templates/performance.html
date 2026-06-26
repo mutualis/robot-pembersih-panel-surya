@@ -1,0 +1,1179 @@
+{% extends "base.html" %} {% block title %}Performance Monitor - Solar Panel
+Cleaner{% endblock %} {% block extra_css %}
+<style>
+  .performance-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+  }
+
+  .stat-card {
+    background: white;
+    padding: 20px;
+    border-radius: 0;
+    box-shadow: none;
+    border: 1px solid #ddd;
+    text-align: center;
+  }
+
+  .stat-label {
+    font-size: 12px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+  }
+
+  .stat-value {
+    font-size: 32px;
+    font-weight: 700;
+    color: #003d7a;
+    margin: 10px 0;
+  }
+
+  .stat-unit {
+    font-size: 16px;
+    color: #999;
+    margin-left: 4px;
+  }
+
+  .stat-progress {
+    height: 4px;
+    background: #e0e0e0;
+    border-radius: 0;
+    overflow: hidden;
+    margin-top: 10px;
+  }
+
+  .stat-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #003d7a, #0066cc);
+    transition: width 0.3s ease;
+  }
+
+  .chart-container {
+    background: white;
+    padding: 20px;
+    border-radius: 0;
+    box-shadow: none;
+    border: 1px solid #ddd;
+    margin-bottom: 20px;
+  }
+
+  .chart-wrapper {
+    position: relative;
+    height: 300px;
+  }
+
+  .perf-live-grid {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 15px;
+    align-items: start;
+  }
+
+  @media (max-width: 768px) {
+    .perf-live-grid {
+      grid-template-columns: 1fr !important;
+    }
+  }
+
+  .status-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 0;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .status-badge.active {
+    background: #d4edda;
+    color: #155724;
+  }
+
+  .status-badge.inactive {
+    background: #f8d7da;
+    color: #721c24;
+  }
+
+  .table-container {
+    background: white;
+    padding: 20px;
+    border-radius: 0;
+    box-shadow: none;
+    border: 1px solid #ddd;
+    overflow-x: auto;
+  }
+
+  .performance-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .performance-table th {
+    background: #f5f5f5;
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    color: #003d7a;
+    border-bottom: 2px solid #003d7a;
+  }
+
+  .performance-table td {
+    padding: 12px;
+    border-bottom: 1px solid #e0e0e0;
+  }
+
+  .performance-table tr:hover {
+    background: #f9f9f9;
+  }
+
+  @media (max-width: 768px) {
+    .performance-grid {
+      grid-template-columns: 1fr !important;
+    }
+  }
+</style>
+{% endblock %} {% block content %}
+<!-- ===== Header: status logging + kontrol (kompak, 1 baris) ===== -->
+<div
+  class="table-container"
+  style="
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    flex-wrap: wrap;
+  "
+>
+  <div>
+    <span style="font-size: 12px; color: #666; text-transform: uppercase"
+      >Logging</span
+    ><br />
+    <span id="loggingStatus" class="status-badge inactive">Unknown</span>
+  </div>
+  <div style="border-left: 1px solid #e0e0e0; padding-left: 18px">
+    <span style="font-size: 12px; color: #666; text-transform: uppercase"
+      >Total Deteksi</span
+    ><br />
+    <strong id="totalDetections" style="font-size: 18px; color: #003d7a"
+      >0</strong
+    >
+  </div>
+  <div style="border-left: 1px solid #e0e0e0; padding-left: 18px">
+    <span style="font-size: 12px; color: #666; text-transform: uppercase"
+      >Durasi Sesi</span
+    ><br />
+    <strong id="sessionDuration" style="font-size: 18px; color: #003d7a"
+      >0s</strong
+    >
+  </div>
+  <span style="flex: 1"></span>
+  <div style="display: flex; gap: 10px">
+    <button class="btn" onclick="generateReport()">Generate Report</button>
+    <button class="btn btn-outline" onclick="exportBab4()">Export Data</button>
+  </div>
+</div>
+
+<!-- ===== Sistem Raspberry Pi (kondisi aktual board) ===== -->
+<div class="table-container" style="margin-bottom: 20px">
+  <h2 class="section-title">
+    Sistem Raspberry Pi
+    <span
+      id="piModel"
+      style="font-size: 13px; font-weight: 400; color: #666"
+    ></span>
+  </h2>
+  <div class="performance-grid" style="margin-bottom: 0">
+    <div class="stat-card">
+      <div class="stat-label">Uptime</div>
+      <div class="stat-value">
+        <span id="sysUptime" style="font-size: 24px">-</span>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Suhu CPU</div>
+      <div class="stat-value">
+        <span id="sysTemp">-</span><span class="stat-unit">°C</span>
+      </div>
+      <div class="stat-progress">
+        <div
+          class="stat-progress-bar"
+          id="tempProgress"
+          style="width: 0%"
+        ></div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">RAM</div>
+      <div class="stat-value">
+        <span id="sysMemPct">-</span><span class="stat-unit">%</span>
+      </div>
+      <div class="stat-progress">
+        <div
+          class="stat-progress-bar"
+          id="memSysProgress"
+          style="width: 0%"
+        ></div>
+      </div>
+      <div style="font-size: 11px; color: #999; margin-top: 6px">
+        <span id="sysMemDetail">- / - MB</span>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">CPU Load</div>
+      <div class="stat-value">
+        <span id="sysCpu">-</span><span class="stat-unit">%</span>
+      </div>
+      <div class="stat-progress">
+        <div
+          class="stat-progress-bar"
+          id="cpuSysProgress"
+          style="width: 0%"
+        ></div>
+      </div>
+      <div style="font-size: 11px; color: #999; margin-top: 6px">
+        <span id="sysCpuDetail">- MHz · - core</span>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Penyimpanan</div>
+      <div class="stat-value">
+        <span id="sysDisk">-</span><span class="stat-unit">%</span>
+      </div>
+      <div class="stat-progress">
+        <div
+          class="stat-progress-bar"
+          id="diskSysProgress"
+          style="width: 0%"
+        ></div>
+      </div>
+      <div style="font-size: 11px; color: #999; margin-top: 6px">
+        <span id="sysDiskDetail">- / - GB</span>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Daya / Throttle</div>
+      <div class="stat-value">
+        <span id="sysThrottle" style="font-size: 18px">-</span>
+      </div>
+      <div style="font-size: 11px; color: #999; margin-top: 6px">
+        <span id="sysThrottleDetail">Status catu daya</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Performa Deteksi Live (pipeline YOLO yang sedang berjalan) ===== -->
+<div class="table-container" style="margin-bottom: 20px">
+  <h2 class="section-title">Performa Deteksi (Live)</h2>
+  <p style="color: #666; font-size: 13px; margin: 8px 0 16px">
+    Metrik dari loop deteksi otomatis yang sedang berjalan. Untuk pengukuran
+    terkontrol, gunakan Benchmark di bawah.
+  </p>
+  <div class="perf-live-grid">
+    <!-- KPI ringkas -->
+    <div>
+      <div class="stat-card" style="margin-bottom: 15px">
+        <div class="stat-label">FPS Rata-rata</div>
+        <div class="stat-value">
+          <span id="avgFps">0.00</span><span class="stat-unit">fps</span>
+        </div>
+        <div class="stat-progress">
+          <div
+            class="stat-progress-bar"
+            id="fpsProgress"
+            style="width: 0%"
+          ></div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Waktu Inferensi (Total)</div>
+        <div class="stat-value">
+          <span id="avgInferenceTime">0.00</span
+          ><span class="stat-unit">ms</span>
+        </div>
+        <div style="font-size: 11px; color: #999; margin-top: 8px">
+          Stage 1 + Stage 2 per frame
+        </div>
+      </div>
+    </div>
+    <!-- Grafik FPS over time -->
+    <div class="chart-container" style="margin-bottom: 0">
+      <h3 style="margin: 0 0 10px; font-size: 14px; color: #003d7a">
+        FPS dari Waktu ke Waktu
+      </h3>
+      <div class="chart-wrapper" style="height: 240px">
+        <canvas id="fpsChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabel rincian per-stage -->
+  <table class="performance-table" style="margin-top: 18px">
+    <thead>
+      <tr>
+        <th>Metrik</th>
+        <th>Stage 1 (Deteksi Panel)</th>
+        <th>Stage 2 (Klasifikasi)</th>
+        <th>Total Pipeline</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Mean</strong></td>
+        <td id="stage1Mean">-</td>
+        <td id="stage2Mean">-</td>
+        <td id="totalMean">-</td>
+      </tr>
+      <tr>
+        <td><strong>Median</strong></td>
+        <td id="stage1Median">-</td>
+        <td id="stage2Median">-</td>
+        <td id="totalMedian">-</td>
+      </tr>
+      <tr>
+        <td><strong>Min</strong></td>
+        <td id="stage1Min">-</td>
+        <td id="stage2Min">-</td>
+        <td id="totalMin">-</td>
+      </tr>
+      <tr>
+        <td><strong>Max</strong></td>
+        <td id="stage1Max">-</td>
+        <td id="stage2Max">-</td>
+        <td id="totalMax">-</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ===== Benchmark Inferensi ===== -->
+<div class="table-container" style="margin-bottom: 20px">
+  <h2 class="section-title">Benchmark Inferensi YOLO</h2>
+  <p style="color: #666; font-size: 13px; margin: 8px 0 16px">
+    Mengukur kecepatan inferensi two-stage berkali-kali secara terkontrol
+    (ms/frame stage 1 & 2 + FPS). Diblokir saat pembersihan berjalan.
+  </p>
+  <div style="display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap">
+    <div>
+      <label
+        style="display: block; font-size: 12px; color: #666; margin-bottom: 4px"
+        >Jumlah Iterasi</label
+      >
+      <input
+        type="number"
+        id="benchRuns"
+        class="config-input"
+        value="100"
+        min="10"
+        max="500"
+        style="width: 120px"
+      />
+    </div>
+    <button class="btn" id="benchBtn" onclick="startBenchmark()">
+      Jalankan Benchmark
+    </button>
+    <span id="benchStatus" style="color: #666; font-size: 13px"></span>
+  </div>
+
+  <div
+    id="benchProgressWrap"
+    class="stat-progress"
+    style="display: none; margin-top: 14px"
+  >
+    <div class="stat-progress-bar" id="benchProgress" style="width: 0%"></div>
+  </div>
+
+  <div id="benchResult" style="display: none; margin-top: 16px">
+    <table class="performance-table">
+      <thead>
+        <tr>
+          <th>Tahap</th>
+          <th>Mean (ms)</th>
+          <th>Median (ms)</th>
+          <th>Std (ms)</th>
+          <th>Min (ms)</th>
+          <th>Max (ms)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Stage 1 (Deteksi)</strong></td>
+          <td id="bs1Mean">-</td>
+          <td id="bs1Median">-</td>
+          <td id="bs1Std">-</td>
+          <td id="bs1Min">-</td>
+          <td id="bs1Max">-</td>
+        </tr>
+        <tr>
+          <td><strong>Stage 2 (Klasifikasi)</strong></td>
+          <td id="bs2Mean">-</td>
+          <td id="bs2Median">-</td>
+          <td id="bs2Std">-</td>
+          <td id="bs2Min">-</td>
+          <td id="bs2Max">-</td>
+        </tr>
+        <tr>
+          <td><strong>Total Pipeline</strong></td>
+          <td id="btMean">-</td>
+          <td id="btMedian">-</td>
+          <td id="btStd">-</td>
+          <td id="btMin">-</td>
+          <td id="btMax">-</td>
+        </tr>
+      </tbody>
+    </table>
+    <p style="margin-top: 10px; font-weight: 600; color: #003d7a">
+      FPS rata-rata: <span id="benchFps">-</span> · Suhu CPU:
+      <span id="benchTemp">-</span> °C
+    </p>
+  </div>
+</div>
+
+<!-- ===== File Hasil (download dari web) ===== -->
+<div class="table-container" style="margin-bottom: 20px">
+  <h2 class="section-title">
+    File Hasil
+    <span
+      id="filesCount"
+      style="font-size: 12px; font-weight: 400; color: #888"
+    ></span>
+  </h2>
+  <div
+    style="
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin: 8px 0 14px;
+    "
+  >
+    <select
+      id="fileFilter"
+      class="config-input"
+      style="width: auto"
+      onchange="renderFiles()"
+    >
+      <option value="all">Semua jenis</option>
+      <option value="benchmark">Benchmark</option>
+      <option value="report">Report</option>
+      <option value="metrics">Metrics (CSV)</option>
+    </select>
+    <button
+      class="btn btn-outline"
+      style="padding: 6px 14px; font-size: 13px"
+      onclick="loadFiles()"
+    >
+      Refresh
+    </button>
+    <button
+      class="btn btn-outline"
+      id="cleanEmptyBtn"
+      style="padding: 6px 14px; font-size: 13px; display: none"
+      onclick="cleanEmptyFiles()"
+    >
+      Bersihkan file kosong (<span id="emptyCount">0</span>)
+    </button>
+    <button
+      class="btn btn-outline"
+      style="
+        padding: 6px 14px;
+        font-size: 13px;
+        border-color: #c62828;
+        color: #c62828;
+      "
+      onclick="deleteAllFiles()"
+    >
+      Hapus Semua
+    </button>
+    <span style="flex: 1"></span>
+    <label style="font-size: 12px; color: #666">
+      <input type="checkbox" id="showAllFiles" onchange="renderFiles()" />
+      Tampilkan semua
+    </label>
+  </div>
+  <table class="performance-table">
+    <thead>
+      <tr>
+        <th>Nama File</th>
+        <th>Jenis</th>
+        <th>Ukuran</th>
+        <th>Waktu</th>
+        <th>Aksi</th>
+      </tr>
+    </thead>
+    <tbody id="filesBody">
+      <tr>
+        <td colspan="5" style="color: #999; text-align: center">
+          Belum ada file. Klik Refresh.
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <p
+    id="filesMore"
+    style="
+      display: none;
+      text-align: center;
+      margin-top: 10px;
+      color: #888;
+      font-size: 12px;
+    "
+  ></p>
+</div>
+{% endblock %} {% block extra_js %}
+<script src="/static/js/chart.umd.min.js"></script>
+<script>
+  // Charts
+  let fpsChart;
+  let fpsHistory = [];
+  let maxHistoryLength = 50;
+
+  // Waktu mulai sesi logging (epoch detik). Dipakai ticker lokal per-detik
+  // supaya "Durasi Sesi" berjalan mulus walau data WS datang tiap 2 detik.
+  let sessionStartEpoch = null;
+
+  function formatDuration(totalSec) {
+    totalSec = Math.max(0, Math.floor(totalSec));
+    const d = Math.floor(totalSec / 86400);
+    const h = Math.floor((totalSec % 86400) / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    if (d > 0) return `${d}h ${h}j ${m}m ${s}d`;
+    if (h > 0) return `${h}j ${m}m ${s}d`;
+    if (m > 0) return `${m}m ${s}d`;
+    return `${s}d`;
+  }
+
+  function renderSessionDuration() {
+    const el = document.getElementById("sessionDuration");
+    if (!el) return;
+    if (sessionStartEpoch === null) {
+      el.textContent = "-";
+      return;
+    }
+    el.textContent = formatDuration(Date.now() / 1000 - sessionStartEpoch);
+  }
+
+  // Ticker per-detik (mulus, tidak menunggu pesan WS)
+  setInterval(renderSessionDuration, 1000);
+
+  // Initialize charts
+  function initCharts() {
+    // FPS Over Time Chart
+    const fpsCtx = document.getElementById("fpsChart").getContext("2d");
+    fpsChart = new Chart(fpsCtx, {
+      type: "line",
+      data: {
+        labels: [],
+        datasets: [
+          {
+            label: "FPS",
+            data: [],
+            borderColor: "rgba(0, 102, 204, 1)",
+            backgroundColor: "rgba(0, 102, 204, 0.1)",
+            borderWidth: 2,
+            tension: 0.4,
+            fill: true,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            max: 15,
+            title: { display: true, text: "FPS" },
+          },
+          x: { display: false },
+        },
+      },
+    });
+  }
+
+  // Initialize
+  document.addEventListener("DOMContentLoaded", function () {
+    initCharts();
+
+    // Connect WebSocket for live stats (replaces setInterval polling)
+    const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+    const perfWs = new WebSocket(
+      `${protocol}//${location.host}/ws/performance`,
+    );
+
+    perfWs.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.success && data.stats) {
+          updateStats(data.stats);
+          if (data.stats.system) updateSystemInfo(data.stats.system);
+        } else {
+          document.getElementById("loggingStatus").textContent = "Inactive";
+          document.getElementById("loggingStatus").className =
+            "status-badge inactive";
+          // Logging belum aktif → durasi sesi belum berjalan
+          sessionStartEpoch = null;
+          renderSessionDuration();
+          // Info sistem RPi tetap diperbarui walau logging belum aktif
+          if (data.system) updateSystemInfo(data.system);
+        }
+      } catch (e) {
+        console.error("Performance WS parse error:", e);
+      }
+    };
+
+    perfWs.onerror = (e) => console.error("Performance WS error:", e);
+
+    perfWs.onclose = () => {
+      // Fallback to HTTP polling if WS closes
+      console.warn("Performance WS closed — falling back to HTTP polling");
+      setInterval(async () => {
+        try {
+          const r = await fetch("/api/performance/stats");
+          const data = await r.json();
+          if (data.success && data.stats) {
+            updateStats(data.stats);
+            if (data.stats.system) updateSystemInfo(data.stats.system);
+          }
+        } catch (e) {}
+        // Info sistem selalu diambil terpisah (tersedia walau logging mati)
+        try {
+          const rs = await fetch("/api/system/info");
+          const sd = await rs.json();
+          if (sd.success && sd.system) updateSystemInfo(sd.system);
+        } catch (e) {}
+      }, 2000);
+    };
+
+    // Initial fetch while WS connects
+    fetch("/api/performance/stats")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success && data.stats) updateStats(data.stats);
+      })
+      .catch(() => {});
+    // Info sistem awal (langsung tampil walau belum ada deteksi)
+    fetch("/api/system/info")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success && data.system) updateSystemInfo(data.system);
+      })
+      .catch(() => {});
+  });
+
+  // Update stats from data object (called by WS or HTTP fallback)
+  function updateStats(stats) {
+    // Update status
+    document.getElementById("loggingStatus").textContent = "Active";
+    document.getElementById("loggingStatus").className = "status-badge active";
+    document.getElementById("totalDetections").textContent =
+      stats.total_detections || 0;
+
+    // Simpan waktu mulai sesi (epoch detik) untuk ticker lokal per-detik.
+    if (stats.session_start) {
+      sessionStartEpoch = stats.session_start;
+    } else if (
+      sessionStartEpoch === null &&
+      stats.session_duration_sec != null
+    ) {
+      // Fallback: rekonstruksi dari durasi bila session_start tak ada
+      sessionStartEpoch = Date.now() / 1000 - stats.session_duration_sec;
+    }
+    renderSessionDuration();
+
+    // KPI live (FPS + waktu inferensi total). Memori & CPU TIDAK diduplikasi
+    // di sini — sudah ada di kartu Sistem Raspberry Pi.
+    document.getElementById("avgFps").textContent = (
+      stats.avg_fps || 0
+    ).toFixed(2);
+    document.getElementById("avgInferenceTime").textContent = (
+      stats.avg_total_time_ms || 0
+    ).toFixed(2);
+
+    document.getElementById("fpsProgress").style.width =
+      Math.min((stats.avg_fps / 10) * 100, 100) + "%";
+
+    // Update FPS history chart
+    fpsHistory.push(stats.avg_fps || 0);
+    if (fpsHistory.length > maxHistoryLength) {
+      fpsHistory.shift();
+    }
+    fpsChart.data.labels = Array(fpsHistory.length).fill("");
+    fpsChart.data.datasets[0].data = fpsHistory;
+    fpsChart.update();
+
+    // Update tabel rincian per-stage
+    updateDetailedTable(stats);
+  }
+
+  function updateDetailedTable(stats) {
+    const fmt = (v) =>
+      v === undefined || v === null ? "-" : v.toFixed(2) + " ms";
+
+    // Mean — nilai NYATA per stage
+    document.getElementById("stage1Mean").textContent = fmt(
+      stats.avg_stage1_time_ms,
+    );
+    document.getElementById("stage2Mean").textContent = fmt(
+      stats.avg_stage2_time_ms,
+    );
+    document.getElementById("totalMean").textContent = fmt(
+      stats.avg_total_time_ms,
+    );
+
+    // Median — nilai NYATA per stage
+    document.getElementById("stage1Median").textContent = fmt(
+      stats.median_stage1_time_ms,
+    );
+    document.getElementById("stage2Median").textContent = fmt(
+      stats.median_stage2_time_ms,
+    );
+    document.getElementById("totalMedian").textContent = fmt(
+      stats.median_total_time_ms,
+    );
+
+    // Min — nilai NYATA per stage (bukan estimasi proporsi lagi)
+    document.getElementById("stage1Min").textContent = fmt(
+      stats.min_stage1_time_ms,
+    );
+    document.getElementById("stage2Min").textContent = fmt(
+      stats.min_stage2_time_ms,
+    );
+    document.getElementById("totalMin").textContent = fmt(
+      stats.min_total_time_ms,
+    );
+
+    // Max — nilai NYATA per stage
+    document.getElementById("stage1Max").textContent = fmt(
+      stats.max_stage1_time_ms,
+    );
+    document.getElementById("stage2Max").textContent = fmt(
+      stats.max_stage2_time_ms,
+    );
+    document.getElementById("totalMax").textContent = fmt(
+      stats.max_total_time_ms,
+    );
+  }
+
+  // Perbarui kartu info sistem Raspberry Pi
+  function updateSystemInfo(sys) {
+    if (!sys) return;
+    const setText = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = val;
+    };
+
+    setText("piModel", sys.model ? "· " + sys.model : "");
+    setText("sysUptime", sys.uptime_human || "-");
+
+    // Suhu CPU (None di non-RPi)
+    if (sys.cpu_temp_c !== null && sys.cpu_temp_c !== undefined) {
+      setText("sysTemp", sys.cpu_temp_c.toFixed(1));
+      // Skala 30-85°C → 0-100% bar. >80°C = mendekati throttle.
+      const pct = Math.min(
+        Math.max(((sys.cpu_temp_c - 30) / 55) * 100, 0),
+        100,
+      );
+      const bar = document.getElementById("tempProgress");
+      if (bar) {
+        bar.style.width = pct + "%";
+        bar.style.background =
+          sys.cpu_temp_c >= 80
+            ? "#c62828"
+            : sys.cpu_temp_c >= 70
+              ? "#f9a825"
+              : "linear-gradient(90deg, #003d7a, #0066cc)";
+      }
+    } else {
+      setText("sysTemp", "N/A");
+    }
+
+    // RAM
+    setText("sysMemPct", (sys.mem_percent ?? 0).toFixed(0));
+    setText(
+      "sysMemDetail",
+      `${Math.round(sys.mem_used_mb ?? 0)} / ${Math.round(
+        sys.mem_total_mb ?? 0,
+      )} MB`,
+    );
+    const memBar = document.getElementById("memSysProgress");
+    if (memBar) memBar.style.width = (sys.mem_percent ?? 0) + "%";
+
+    // CPU
+    setText("sysCpu", (sys.cpu_percent ?? 0).toFixed(0));
+    const freq = sys.cpu_freq_mhz ? Math.round(sys.cpu_freq_mhz) : "-";
+    setText("sysCpuDetail", `${freq} MHz · ${sys.cpu_count ?? "-"} core`);
+    const cpuBar = document.getElementById("cpuSysProgress");
+    if (cpuBar) cpuBar.style.width = (sys.cpu_percent ?? 0) + "%";
+
+    // Disk
+    setText("sysDisk", (sys.disk_percent ?? 0).toFixed(0));
+    setText(
+      "sysDiskDetail",
+      `${sys.disk_used_gb ?? 0} / ${sys.disk_total_gb ?? 0} GB`,
+    );
+    const diskBar = document.getElementById("diskSysProgress");
+    if (diskBar) diskBar.style.width = (sys.disk_percent ?? 0) + "%";
+
+    // Throttle / daya
+    const thr = sys.throttled;
+    const thrEl = document.getElementById("sysThrottle");
+    const thrDetail = document.getElementById("sysThrottleDetail");
+    if (thr) {
+      const problemNow = thr.undervoltage_now || thr.throttled_now;
+      const problemEver = thr.undervoltage_occurred || thr.throttled_occurred;
+      if (problemNow) {
+        thrEl.textContent = "⚠ Bermasalah";
+        thrEl.style.color = "#c62828";
+        thrDetail.textContent = thr.undervoltage_now
+          ? "Undervoltage terdeteksi sekarang"
+          : "Throttling aktif sekarang";
+      } else if (problemEver) {
+        thrEl.textContent = "Pernah";
+        thrEl.style.color = "#f9a825";
+        thrDetail.textContent = "Sempat undervoltage/throttle sejak boot";
+      } else {
+        thrEl.textContent = "✓ Normal";
+        thrEl.style.color = "#155724";
+        thrDetail.textContent = "Catu daya stabil";
+      }
+    } else {
+      thrEl.textContent = "N/A";
+      thrEl.style.color = "#999";
+      thrDetail.textContent = "vcgencmd tidak tersedia";
+    }
+  }
+
+  // Actions
+  // Memicu unduhan file hasil langsung ke browser (penting untuk akses remote)
+  function triggerDownload(path) {
+    if (!path) return false;
+    const url =
+      "/api/performance/download/" + encodeURI(path.replace(/\\/g, "/"));
+    const a = document.createElement("a");
+    a.href = url;
+    a.setAttribute("download", "");
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    return true;
+  }
+
+  async function generateReport() {
+    try {
+      const response = await fetch("/api/performance/report", {
+        method: "POST",
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        const path =
+          data.download_path ||
+          (data.report && data.report.files && data.report.files.json);
+        loadFiles();
+        if (triggerDownload(path)) {
+          showToast("Report dibuat, file JSON sedang diunduh.", "success");
+        } else {
+          showToast(
+            "Report dibuat. Path unduhan tidak tersedia, cek tabel File Hasil.",
+            "success",
+          );
+        }
+      } else {
+        showToast(
+          "Error: " + (data.message || "Failed to generate report"),
+          "error",
+        );
+      }
+    } catch (error) {
+      showToast("Error generating report: " + error.message, "error");
+    }
+  }
+
+  async function exportBab4() {
+    try {
+      const response = await fetch("/api/performance/export", {
+        method: "POST",
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        const path =
+          data.download_path || (data.files && data.files.latex_file);
+        loadFiles();
+        if (triggerDownload(path)) {
+          showToast("Export berhasil, laporan sedang diunduh.", "success");
+        } else {
+          showToast(
+            "Export berhasil. File tersimpan di analysis_output/performance/.",
+            "success",
+          );
+        }
+      } else {
+        showToast("Error: " + (data.message || "Failed to export"), "error");
+      }
+    } catch (error) {
+      showToast("Error exporting: " + error.message, "error");
+    }
+  }
+
+  // ===== Benchmark Inferensi =====
+  let benchPollTimer = null;
+
+  async function startBenchmark() {
+    const runs = parseInt(document.getElementById("benchRuns").value) || 100;
+    const btn = document.getElementById("benchBtn");
+    btn.disabled = true;
+    document.getElementById("benchStatus").textContent = "Memulai...";
+    document.getElementById("benchResult").style.display = "none";
+    document.getElementById("benchProgressWrap").style.display = "block";
+    document.getElementById("benchProgress").style.width = "0%";
+
+    try {
+      const r = await fetch("/api/performance/benchmark/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ runs: runs }),
+      });
+      const data = await r.json();
+      if (!data.success) {
+        showToast("Benchmark: " + (data.message || "gagal"), "error");
+        btn.disabled = false;
+        document.getElementById("benchStatus").textContent = "";
+        document.getElementById("benchProgressWrap").style.display = "none";
+        return;
+      }
+      document.getElementById("benchStatus").textContent = "Berjalan...";
+      benchPollTimer = setInterval(pollBenchmark, 1000);
+    } catch (e) {
+      showToast("Benchmark error: " + e.message, "error");
+      btn.disabled = false;
+    }
+  }
+
+  async function pollBenchmark() {
+    try {
+      const r = await fetch("/api/performance/benchmark/status");
+      const data = await r.json();
+      const pct =
+        data.total > 0 ? Math.round((data.done / data.total) * 100) : 0;
+      document.getElementById("benchProgress").style.width = pct + "%";
+      document.getElementById("benchStatus").textContent = data.running
+        ? `Berjalan... ${data.done}/${data.total}`
+        : "Selesai";
+
+      if (!data.running) {
+        clearInterval(benchPollTimer);
+        document.getElementById("benchBtn").disabled = false;
+        if (data.error) {
+          showToast("Benchmark gagal: " + data.error, "error");
+          document.getElementById("benchStatus").textContent = "Gagal";
+        } else if (data.result) {
+          showBenchmarkResult(data.result);
+          showToast("Benchmark selesai!", "success");
+          loadFiles();
+        }
+      }
+    } catch (e) {
+      clearInterval(benchPollTimer);
+      document.getElementById("benchBtn").disabled = false;
+    }
+  }
+
+  function showBenchmarkResult(res) {
+    const set = (id, v) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = v === undefined || v === null ? "-" : v;
+    };
+    const s1 = res.stage1_ms || {},
+      s2 = res.stage2_ms || {},
+      tt = res.total_ms || {};
+    set("bs1Mean", s1.mean);
+    set("bs1Median", s1.median);
+    set("bs1Std", s1.stdev);
+    set("bs1Min", s1.min);
+    set("bs1Max", s1.max);
+    set("bs2Mean", s2.mean);
+    set("bs2Median", s2.median);
+    set("bs2Std", s2.stdev);
+    set("bs2Min", s2.min);
+    set("bs2Max", s2.max);
+    set("btMean", tt.mean);
+    set("btMedian", tt.median);
+    set("btStd", tt.stdev);
+    set("btMin", tt.min);
+    set("btMax", tt.max);
+    set("benchFps", res.fps_mean);
+    set("benchTemp", (res.system && res.system.cpu_temp_c) ?? "N/A");
+    document.getElementById("benchResult").style.display = "block";
+  }
+
+  // ===== Daftar & download file hasil =====
+  let allFiles = [];
+  const FILE_LIMIT = 5; // tampilkan 5 terbaru kecuali "Tampilkan semua"
+
+  async function loadFiles() {
+    try {
+      const r = await fetch("/api/performance/files");
+      const data = await r.json();
+      allFiles = data.success && data.files ? data.files : [];
+
+      // Tombol bersihkan file kosong
+      const emptyBtn = document.getElementById("cleanEmptyBtn");
+      const emptyCount = data.empty_count || 0;
+      if (emptyCount > 0) {
+        document.getElementById("emptyCount").textContent = emptyCount;
+        emptyBtn.style.display = "inline-block";
+      } else {
+        emptyBtn.style.display = "none";
+      }
+      renderFiles();
+    } catch (e) {
+      console.error("loadFiles error:", e);
+    }
+  }
+
+  function catLabel(c) {
+    return c === "benchmark"
+      ? "Benchmark"
+      : c === "report"
+        ? "Report"
+        : "Metrics";
+  }
+
+  function renderFiles() {
+    const body = document.getElementById("filesBody");
+    const filter = document.getElementById("fileFilter").value;
+    const showAll = document.getElementById("showAllFiles").checked;
+    const moreEl = document.getElementById("filesMore");
+    const countEl = document.getElementById("filesCount");
+
+    let list = allFiles.filter(
+      (f) => filter === "all" || f.category === filter,
+    );
+    countEl.textContent = `(${list.length} file)`;
+
+    if (list.length === 0) {
+      body.innerHTML =
+        '<tr><td colspan="5" style="color:#999;text-align:center">Tidak ada file.</td></tr>';
+      moreEl.style.display = "none";
+      return;
+    }
+
+    const shown = showAll ? list : list.slice(0, FILE_LIMIT);
+    body.innerHTML = shown
+      .map((f) => {
+        const dt = new Date(f.modified);
+        const when = isNaN(dt) ? f.modified : dt.toLocaleString("id-ID");
+        const url = "/api/performance/download/" + encodeURI(f.path);
+        const emptyTag = f.empty
+          ? ' <span style="color:#c62828;font-size:11px">(kosong)</span>'
+          : "";
+        return `<tr>
+          <td>${f.name}${emptyTag}</td>
+          <td><span style="font-size:11px;color:#666">${catLabel(f.category)}</span></td>
+          <td>${f.size_kb} KB</td>
+          <td>${when}</td>
+          <td>
+            <a class="btn btn-outline" style="padding:3px 10px;font-size:12px" href="${url}" download="${f.name}">Unduh</a>
+            <button class="btn btn-outline" style="padding:3px 10px;font-size:12px;border-color:#c62828;color:#c62828" onclick="deleteFile('${f.path.replace(/'/g, "\\'")}')">Hapus</button>
+          </td>
+        </tr>`;
+      })
+      .join("");
+
+    if (!showAll && list.length > FILE_LIMIT) {
+      moreEl.style.display = "block";
+      moreEl.textContent = `Menampilkan ${FILE_LIMIT} dari ${list.length} file. Centang "Tampilkan semua" untuk melihat sisanya.`;
+    } else {
+      moreEl.style.display = "none";
+    }
+  }
+
+  async function deleteAllFiles() {
+    const filter = document.getElementById("fileFilter").value || "all";
+    const label =
+      filter === "all" ? "SEMUA file hasil" : `semua file kategori "${filter}"`;
+    const ok = await showDialog(
+      "Hapus Semua",
+      `Hapus ${label} secara permanen? Tindakan ini tidak bisa dibatalkan.`,
+    );
+    if (!ok) return;
+    try {
+      const r = await fetch("/api/performance/files/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "all", category: filter }),
+      });
+      const data = await r.json();
+      if (data.success) {
+        showToast(`${data.removed} file dihapus`, "success");
+        loadFiles();
+      } else {
+        showToast("Gagal: " + (data.message || "tidak bisa hapus"), "error");
+      }
+    } catch (e) {
+      showToast("Error: " + e.message, "error");
+    }
+  }
+
+  async function deleteFile(path) {
+    const ok = await showDialog(
+      "Hapus File",
+      "Hapus file ini secara permanen?",
+    );
+    if (!ok) return;
+    try {
+      const r = await fetch("/api/performance/files/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: path, action: "one" }),
+      });
+      const data = await r.json();
+      if (data.success) {
+        showToast("File dihapus", "success");
+        loadFiles();
+      } else {
+        showToast("Gagal: " + (data.message || "tidak bisa hapus"), "error");
+      }
+    } catch (e) {
+      showToast("Error: " + e.message, "error");
+    }
+  }
+
+  async function cleanEmptyFiles() {
+    const ok = await showDialog(
+      "Bersihkan File Kosong",
+      "Hapus semua file metrics kosong (hanya berisi header)?",
+    );
+    if (!ok) return;
+    try {
+      const r = await fetch("/api/performance/files/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "empty" }),
+      });
+      const data = await r.json();
+      if (data.success) {
+        showToast(`${data.removed} file kosong dihapus`, "success");
+        loadFiles();
+      } else {
+        showToast("Gagal: " + (data.message || ""), "error");
+      }
+    } catch (e) {
+      showToast("Error: " + e.message, "error");
+    }
+  }
+
+  // Muat daftar file saat halaman dibuka
+  document.addEventListener("DOMContentLoaded", loadFiles);
+</script>
+{% endblock %}

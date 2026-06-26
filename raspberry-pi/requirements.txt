@@ -1,0 +1,31 @@
+# Raspberry Pi Production Dependencies
+# Install: pip install -r requirements.txt
+
+# PyTorch CPU-only (tanpa CUDA, lebih ringan untuk Raspberry Pi)
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch
+torchvision
+
+# AI / Computer Vision
+ultralytics>=8.3.0
+opencv-python>=4.8.0
+numpy>=1.24.0
+Pillow>=10.0.0
+
+# Web interface
+flask>=3.0.0
+flask-cors>=4.0.0
+flask-sock>=0.7.0
+simple-websocket>=1.0.0
+
+# Serial communication (ESP32)
+pyserial>=3.5
+
+# Configuration
+pyyaml>=6.0
+
+# Performance monitoring
+psutil>=5.9.0
+
+# Note: Di Raspberry Pi, jika pakai Pi Camera:
+# pip install picamera2

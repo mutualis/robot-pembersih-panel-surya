@@ -1,0 +1,2708 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Solar Panel Cleaner — 3D Visualization</title>
+    <style>
+      :root {
+        --bg: #f1f5f9;
+        --bg-2: #e2e8f0;
+        --panel: #ffffffd9;
+        --panel-solid: #ffffff;
+        --border: #cbd5e1;
+        --border-strong: #94a3b8;
+        --text: #0f172a;
+        --text-dim: #475569;
+        --text-mute: #64748b;
+        --accent: #0284c7;
+        --accent-2: #0ea5e9;
+        --green: #16a34a;
+        --amber: #f59e0b;
+        --red: #dc2626;
+        --red-dim: #fecaca;
+        --mono: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, monospace;
+        --sans:
+          -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Helvetica,
+          Arial, sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        width: 100%;
+        overflow: hidden;
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--sans);
+        font-size: 13px;
+        -webkit-font-smoothing: antialiased;
+      }
+      #app {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+      }
+      #canvas-wrap {
+        position: absolute;
+        inset: 0;
+      }
+      canvas {
+        display: block;
+        outline: none;
+      }
+
+      .topbar {
+        position: absolute;
+        top: 16px;
+        right: 360px;
+        display: flex;
+        align-items: center;
+        z-index: 10;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding-right: 14px;
+        border-right: 1px solid var(--border);
+      }
+      .brand-mark {
+        width: 26px;
+        height: 26px;
+        border-radius: 6px;
+        background: linear-gradient(135deg, #0284c7, #0ea5e9);
+        display: grid;
+        place-items: center;
+        font-family: var(--mono);
+        font-weight: 700;
+        font-size: 12px;
+        color: white;
+      }
+      .brand-name {
+        font-weight: 600;
+        letter-spacing: 0.2px;
+      }
+      .brand-sub {
+        color: var(--text-mute);
+        font-family: var(--mono);
+        font-size: 11px;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-family: var(--mono);
+        font-size: 11px;
+        background: #ffffff;
+        border: 1px solid var(--border);
+        color: var(--text-dim);
+      }
+      .pill .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--green);
+        box-shadow: 0 0 6px rgba(22, 163, 74, 0.5);
+      }
+      .pill.warn .dot {
+        background: var(--amber);
+      }
+      .pill.err .dot {
+        background: var(--red);
+      }
+
+      .topbar .spacer {
+        flex: 1;
+      }
+
+      .seg {
+        display: inline-flex;
+        padding: 3px;
+        background: #f8fafc;
+        border: 1px solid var(--border);
+        border-radius: 0;
+      }
+      .seg button {
+        background: transparent;
+        color: var(--text-dim);
+        border: 0;
+        padding: 8px 16px;
+        font-family: var(--sans);
+        font-size: 12px;
+        font-weight: 500;
+        border-radius: 0;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .seg button.active {
+        background: white;
+        color: var(--text);
+        box-shadow:
+          0 1px 2px rgba(15, 23, 42, 0.08),
+          inset 0 0 0 1px var(--border);
+      }
+      .seg button:hover:not(.active) {
+        background: rgba(255, 255, 255, 0.5);
+      }
+
+      .panel {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        bottom: 16px;
+        width: 328px;
+        background: var(--panel);
+        backdrop-filter: blur(10px);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08);
+        z-index: 10;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .panel-header {
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .panel-title {
+        font-weight: 600;
+        font-size: 13px;
+      }
+      .panel-sub {
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--text-mute);
+      }
+      .panel-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 14px 16px 16px;
+        scrollbar-width: thin;
+        scrollbar-color: #cbd5e1 transparent;
+      }
+      .panel-body::-webkit-scrollbar {
+        width: 6px;
+      }
+      .panel-body::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 3px;
+      }
+
+      .section {
+        margin-bottom: 18px;
+      }
+      .section h3 {
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 1.4px;
+        text-transform: uppercase;
+        color: var(--text-mute);
+        margin: 0 0 10px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .section h3::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: var(--border);
+      }
+
+      .pos-block {
+        background: white;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 14px;
+      }
+      .pos-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 12px;
+      }
+      .pos-mm {
+        font-family: var(--mono);
+        font-size: 28px;
+        font-weight: 600;
+        color: var(--accent);
+        letter-spacing: -0.5px;
+        font-variant-numeric: tabular-nums;
+      }
+      .pos-mm .unit {
+        font-size: 13px;
+        color: var(--text-mute);
+        margin-left: 4px;
+        font-weight: 400;
+      }
+      .pos-pct {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--text-dim);
+        font-variant-numeric: tabular-nums;
+      }
+      .bar {
+        margin-top: 12px;
+        position: relative;
+        height: 8px;
+        background: #e2e8f0;
+        border-radius: 4px;
+        overflow: hidden;
+      }
+      .bar-fill {
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        background: linear-gradient(90deg, #0284c7, #0ea5e9);
+        border-radius: 4px;
+        transition: width 0.1s linear;
+      }
+      .bar-ticks {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 6px;
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--text-mute);
+      }
+
+      .stat-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+      .stat {
+        background: white;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 10px 12px;
+      }
+      .stat .label {
+        font-size: 10px;
+        letter-spacing: 0.5px;
+        color: var(--text-mute);
+        text-transform: uppercase;
+        margin-bottom: 4px;
+      }
+      .stat .val {
+        font-family: var(--mono);
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--text);
+        font-variant-numeric: tabular-nums;
+      }
+      .stat .val .sub {
+        font-size: 11px;
+        color: var(--text-mute);
+        font-weight: 400;
+        margin-left: 4px;
+      }
+
+      .indicator-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 9px 12px;
+        background: white;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        margin-bottom: 6px;
+      }
+      .indicator-row:last-child {
+        margin-bottom: 0;
+      }
+      .ind-label {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 12px;
+      }
+      .ind-tag {
+        font-family: var(--mono);
+        font-size: 10px;
+        font-weight: 600;
+        padding: 2px 6px;
+        border-radius: 4px;
+        background: #f1f5f9;
+        color: var(--text-dim);
+        letter-spacing: 0.5px;
+      }
+      .ind-light {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #e2e8f0;
+        box-shadow: inset 0 0 0 1px #cbd5e1;
+        transition: all 0.2s;
+      }
+      .ind-light.on {
+        background: var(--green);
+        box-shadow:
+          0 0 8px rgba(22, 163, 74, 0.6),
+          inset 0 0 0 1px #15803d;
+      }
+      .ind-light.amber.on {
+        background: var(--amber);
+        box-shadow:
+          0 0 8px rgba(245, 158, 11, 0.6),
+          inset 0 0 0 1px #d97706;
+      }
+      .ind-light.blue.on {
+        background: #3b82f6;
+        box-shadow:
+          0 0 8px rgba(59, 130, 246, 0.6),
+          inset 0 0 0 1px #2563eb;
+      }
+
+      .fsm {
+        background: white;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 12px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .fsm-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: #e0f2fe;
+        display: grid;
+        place-items: center;
+        color: var(--accent);
+        font-family: var(--mono);
+        font-weight: 700;
+        font-size: 14px;
+      }
+      .fsm-text .name {
+        font-family: var(--mono);
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text);
+        letter-spacing: 0.5px;
+      }
+      .fsm-text .desc {
+        font-size: 11px;
+        color: var(--text-mute);
+        margin-top: 2px;
+      }
+
+      .btn-grid {
+        display: grid;
+        gap: 8px;
+      }
+      .btn {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        background: white;
+        border: 1px solid var(--border);
+        color: var(--text);
+        border-radius: 8px;
+        cursor: pointer;
+        font-family: var(--sans);
+        font-size: 12px;
+        font-weight: 500;
+        transition: all 0.15s;
+        text-align: left;
+      }
+      .btn:hover:not(:disabled) {
+        border-color: var(--accent);
+        background: #f0f9ff;
+      }
+      .btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+      .btn .key {
+        margin-left: auto;
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--text-mute);
+        padding: 2px 6px;
+        background: #f1f5f9;
+        border-radius: 4px;
+      }
+      .btn-icon {
+        width: 22px;
+        height: 22px;
+        border-radius: 5px;
+        display: grid;
+        place-items: center;
+        font-size: 12px;
+      }
+      .btn.primary {
+        border-color: #7dd3fc;
+        background: #f0f9ff;
+        color: #075985;
+      }
+      .btn.primary:hover:not(:disabled) {
+        background: #e0f2fe;
+      }
+      .btn.primary .btn-icon {
+        background: #bae6fd;
+        color: #0369a1;
+      }
+      .btn.danger {
+        border-color: var(--red-dim);
+        background: #fef2f2;
+        color: #991b1b;
+      }
+      .btn.danger:hover:not(:disabled) {
+        background: #fee2e2;
+        border-color: var(--red);
+      }
+      .btn.danger .btn-icon {
+        background: #fecaca;
+        color: #991b1b;
+      }
+      .btn.ghost .btn-icon {
+        background: #f1f5f9;
+        color: var(--text-dim);
+      }
+
+      .slider-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .slider-row input[type="range"] {
+        flex: 1;
+        -webkit-appearance: none;
+        appearance: none;
+        height: 4px;
+        background: #e2e8f0;
+        border-radius: 2px;
+        outline: none;
+      }
+      .slider-row input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: var(--accent);
+        cursor: pointer;
+        box-shadow: 0 0 0 3px #e0f2fe;
+      }
+      .slider-row input[type="range"]::-moz-range-thumb {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: var(--accent);
+        cursor: pointer;
+        border: 0;
+      }
+      .slider-val {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--text-dim);
+        min-width: 56px;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .hud {
+        position: absolute;
+        left: 16px;
+        bottom: 16px;
+        background: var(--panel);
+        backdrop-filter: blur(10px);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px 14px;
+        display: flex;
+        gap: 18px;
+        z-index: 10;
+        font-family: var(--mono);
+        font-size: 11px;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+      }
+      .hud .item {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .hud .item .lbl {
+        color: var(--text-mute);
+        font-size: 9px;
+        letter-spacing: 0.8px;
+        text-transform: uppercase;
+      }
+      .hud .item .val {
+        color: var(--text);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .help {
+        position: absolute;
+        right: 360px;
+        bottom: 16px;
+        margin-right: 16px;
+        background: var(--panel);
+        backdrop-filter: blur(10px);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px 14px;
+        z-index: 10;
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--text-dim);
+        display: flex;
+        gap: 14px;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+      }
+      .help kbd {
+        font-family: var(--mono);
+        font-size: 10px;
+        padding: 1px 5px;
+        background: white;
+        border-radius: 3px;
+        color: var(--text);
+        border: 1px solid var(--border);
+        box-shadow: 0 1px 0 var(--border);
+      }
+
+      .estop-overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(220, 38, 38, 0.06);
+        z-index: 20;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+      }
+      .estop-overlay.active {
+        display: flex;
+        pointer-events: auto;
+      }
+      .estop-overlay::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border: 4px solid var(--red);
+        animation: pulse-border 1s ease-in-out infinite;
+        pointer-events: none;
+      }
+      @keyframes pulse-border {
+        0%,
+        100% {
+          opacity: 0.4;
+        }
+        50% {
+          opacity: 1;
+        }
+      }
+      .estop-banner {
+        position: relative;
+        z-index: 2;
+        pointer-events: auto;
+        background: white;
+        border: 1px solid var(--red);
+        border-radius: 12px;
+        padding: 16px 24px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        box-shadow: 0 10px 40px rgba(220, 38, 38, 0.2);
+      }
+      .estop-banner .icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: var(--red);
+        color: white;
+        display: grid;
+        place-items: center;
+        font-weight: 700;
+        font-size: 16px;
+      }
+      .estop-banner .text .ttl {
+        font-weight: 700;
+        color: var(--red);
+        letter-spacing: 1px;
+      }
+      .estop-banner .text .sub {
+        font-size: 11px;
+        color: #b91c1c;
+        font-family: var(--mono);
+        margin-top: 2px;
+      }
+      .estop-banner button {
+        margin-left: 12px;
+        background: var(--red);
+        color: white;
+        border: 0;
+        padding: 8px 14px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 11px;
+        letter-spacing: 0.5px;
+        pointer-events: auto;
+      }
+      .estop-banner button:hover {
+        background: #b91c1c;
+      }
+
+      #loading {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        background: var(--bg);
+        z-index: 100;
+        color: var(--text-dim);
+        font-family: var(--mono);
+        font-size: 12px;
+        transition: opacity 0.4s;
+      }
+      #loading.hide {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #loading .ring {
+        width: 32px;
+        height: 32px;
+        border: 2px solid #e2e8f0;
+        border-top-color: var(--accent);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin-bottom: 14px;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      #loading .col {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      @media (max-width: 900px) {
+        .topbar {
+          right: 16px;
+        }
+        .panel {
+          display: none;
+        }
+        .help {
+          right: 16px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div id="canvas-wrap"></div>
+
+      <div class="topbar">
+        <div class="seg" id="view-seg">
+          <button data-view="iso" class="active">ISO</button>
+          <button data-view="front">FRONT</button>
+          <button data-view="side">SIDE</button>
+        </div>
+      </div>
+
+      <aside class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-title">Telemetry &amp; Control</div>
+            <div class="panel-sub" id="panel-sub">menunggu data ESP32…</div>
+          </div>
+          <div class="pill err" id="hb-pill">
+            <span class="dot"></span>OFFLINE
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="section">
+            <h3>Carriage Position</h3>
+            <div class="pos-block">
+              <div class="pos-row">
+                <div class="pos-mm">
+                  <span id="pos-mm">0</span><span class="unit">mm</span>
+                </div>
+                <div class="pos-pct"><span id="pos-pct">0.0</span>%</div>
+              </div>
+              <div class="bar">
+                <div class="bar-fill" id="pos-bar" style="width: 0%"></div>
+              </div>
+              <div class="bar-ticks">
+                <span>0 (LS2)</span>
+                <span>400</span>
+                <span>800 (LS1)</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <h3>Motors</h3>
+            <div class="stat-grid">
+              <div class="stat">
+                <div class="label">Wiper RPM</div>
+                <div class="val"><span id="rpm-cur">0</span></div>
+              </div>
+              <div class="stat">
+                <div class="label">Brush RPM</div>
+                <div class="val"><span id="brush-rpm">0</span></div>
+              </div>
+              <div class="stat">
+                <div class="label">Encoder</div>
+                <div class="val">
+                  <span id="enc-val">0</span><span class="sub">cnt</span>
+                </div>
+              </div>
+              <div class="stat">
+                <div class="label">Progress</div>
+                <div class="val">
+                  <span id="cur-amp">0</span><span class="sub">%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <h3>Limit Switches</h3>
+            <div class="indicator-row">
+              <div class="ind-label">
+                <span class="ind-tag">LS1</span>
+                <span>Top Limit</span>
+              </div>
+              <div class="ind-light" id="ls1-light"></div>
+            </div>
+            <div class="indicator-row">
+              <div class="ind-label">
+                <span class="ind-tag">LS2</span>
+                <span>Bottom Limit</span>
+              </div>
+              <div class="ind-light" id="ls2-light"></div>
+            </div>
+          </div>
+
+          <div class="section">
+            <h3>Actuators</h3>
+            <div class="indicator-row">
+              <div class="ind-label">
+                <span class="ind-tag">M1</span>
+                <span>Wiper Motor (belt)</span>
+              </div>
+              <div class="ind-light" id="wiper-light"></div>
+            </div>
+            <div class="indicator-row">
+              <div class="ind-label">
+                <span class="ind-tag">M2</span>
+                <span>Brush Motor</span>
+              </div>
+              <div class="ind-light amber" id="brush-light"></div>
+            </div>
+            <div class="indicator-row">
+              <div class="ind-label">
+                <span class="ind-tag">P1</span>
+                <span>Water Pump</span>
+              </div>
+              <div class="ind-light blue" id="pump-light"></div>
+            </div>
+          </div>
+
+          <div class="section">
+            <h3>FSM State</h3>
+            <div class="fsm">
+              <div class="fsm-icon" id="fsm-icon">◇</div>
+              <div class="fsm-text">
+                <div class="name" id="fsm-name">IDLE</div>
+                <div class="desc" id="fsm-desc">
+                  Awaiting command. All motors disabled.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <h3>Manual Position</h3>
+            <div class="slider-row">
+              <input
+                type="range"
+                min="0"
+                max="540"
+                step="1"
+                value="0"
+                id="manual-slider"
+              />
+              <div class="slider-val"><span id="manual-val">0</span>mm</div>
+            </div>
+          </div>
+
+          <div class="section">
+            <h3>Commands</h3>
+            <div class="btn-grid">
+              <button class="btn primary" id="btn-home">
+                <div class="btn-icon">↑</div>
+                <div>Home to Top</div>
+                <div class="key">H</div>
+              </button>
+              <button class="btn primary" id="btn-cycle">
+                <div class="btn-icon">↻</div>
+                <div>Test Cleaning Cycle</div>
+                <div class="key">C</div>
+              </button>
+              <button class="btn ghost" id="btn-brush">
+                <div class="btn-icon">✦</div>
+                <div>Toggle Brush Motor</div>
+                <div class="key">B</div>
+              </button>
+              <button class="btn ghost" id="btn-pump">
+                <div class="btn-icon">💧</div>
+                <div>Toggle Water Pump</div>
+                <div class="key">P</div>
+              </button>
+              <button class="btn danger" id="btn-estop">
+                <div class="btn-icon">!</div>
+                <div>Emergency Stop</div>
+                <div class="key">SPACE</div>
+              </button>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <div class="estop-overlay" id="estop-overlay">
+        <div class="estop-banner">
+          <div class="icon">!</div>
+          <div class="text">
+            <div class="ttl">EMERGENCY STOP ACTIVE</div>
+            <div class="sub">All actuators disabled · Reset required</div>
+          </div>
+          <button id="estop-reset">RESET</button>
+        </div>
+      </div>
+
+      <div id="loading">
+        <div class="col">
+          <div class="ring"></div>
+        </div>
+      </div>
+    </div>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "/static/js/three/three.module.js",
+          "three/addons/": "/static/js/three/"
+        }
+      }
+    </script>
+
+    <script type="module">
+      import * as THREE from "three";
+      import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+      // 1 unit = 100 mm. Panel mounted PORTRAIT.
+      // Panel: 541 mm wide × 845 mm tall × 30 mm thick.
+      // Wiper bar spans the WIDTH (541mm), travels along HEIGHT (845mm).
+      const PANEL_W = 5.41; // 541 mm — horizontal in panel plane (X)
+      const PANEL_H = 8.45; // 845 mm — vertical in panel plane (Y, travel direction)
+      const PANEL_T = 0.3; // 30 mm
+      const TILT_DEG = 45;
+      const TILT = THREE.MathUtils.degToRad(TILT_DEG);
+      const TRAVEL_MM = 800; // jarak tempuh wiper/brush real = 80 cm (jangkauan aktual)
+
+      // Pulley and belt constants (GLOBAL - used throughout)
+      const PULLEY_R = 0.12;
+      const PULLEY_THICK = 0.1;
+      const PULLEY_OFFSET_X = 0.15; // Offset pulley dari rail untuk motor mounting
+      const PULLEY_OFFSET_Z = 0.1; // Offset pulley di Z axis
+
+      // Scene basics
+      const wrap = document.getElementById("canvas-wrap");
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(wrap.clientWidth, wrap.clientHeight);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.05;
+      wrap.appendChild(renderer.domElement);
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color("#f1f5f9");
+      scene.fog = new THREE.Fog("#f1f5f9", 25, 70);
+
+      const camera = new THREE.PerspectiveCamera(
+        42,
+        wrap.clientWidth / wrap.clientHeight,
+        0.1,
+        200,
+      );
+      camera.position.set(14, 12, 14); // start with isometric view
+
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.08;
+      controls.minDistance = 5;
+      controls.maxDistance = 30;
+      controls.maxPolarAngle = Math.PI * 0.49;
+      controls.target.set(0, 8.5, 0.5);
+
+      // Lighting — bright daylight
+      scene.add(new THREE.AmbientLight(0xffffff, 0.85));
+      const dir = new THREE.DirectionalLight(0xffffff, 1.05);
+      dir.position.set(8, 14, 6);
+      dir.castShadow = true;
+      dir.shadow.mapSize.set(2048, 2048);
+      dir.shadow.camera.left = -12;
+      dir.shadow.camera.right = 12;
+      dir.shadow.camera.top = 12;
+      dir.shadow.camera.bottom = -12;
+      dir.shadow.camera.near = 0.5;
+      dir.shadow.camera.far = 40;
+      dir.shadow.bias = -0.0008;
+      scene.add(dir);
+      const fill = new THREE.DirectionalLight(0xbfdbfe, 0.35);
+      fill.position.set(-6, 5, -8);
+      scene.add(fill);
+      scene.add(new THREE.HemisphereLight(0xffffff, 0xcbd5e1, 0.4));
+
+      // Floor (light tile)
+      {
+        const g = new THREE.PlaneGeometry(40, 40);
+        const m = new THREE.MeshStandardMaterial({
+          color: 0xe2e8f0,
+          roughness: 0.9,
+        });
+        const f = new THREE.Mesh(g, m);
+        f.rotation.x = -Math.PI / 2;
+        f.receiveShadow = true;
+        scene.add(f);
+        const grid = new THREE.GridHelper(40, 40, 0xcbd5e1, 0xd1d5db);
+        grid.position.y = 0.005;
+        scene.add(grid);
+      }
+
+      // ── Materials ──────────────────────────────────────────────────────────────
+      const matAlu = new THREE.MeshStandardMaterial({
+        color: 0xc0c5cc,
+        metalness: 0.85,
+        roughness: 0.35,
+      });
+      const matAluDark = new THREE.MeshStandardMaterial({
+        color: 0x9aa3ad,
+        metalness: 0.8,
+        roughness: 0.45,
+      });
+      const matSteel = new THREE.MeshStandardMaterial({
+        color: 0xb8bec6,
+        metalness: 0.7,
+        roughness: 0.55,
+      });
+      const matGalv = new THREE.MeshStandardMaterial({
+        color: 0xa8b0b8,
+        metalness: 0.6,
+        roughness: 0.7,
+      });
+      const matBolt = new THREE.MeshStandardMaterial({
+        color: 0x4a4a4a,
+        metalness: 0.7,
+        roughness: 0.5,
+      });
+
+      const matPanelGlass = new THREE.MeshPhysicalMaterial({
+        color: 0xd4af37, // gold/yellow backing material (visible in gaps)
+        metalness: 0.1,
+        roughness: 0.4,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.05,
+        transmission: 0.0, // no transparency, solid gold backing
+      });
+      const matCellBlue = new THREE.MeshStandardMaterial({
+        color: 0x1a2a4a, // darker navy blue for solar cells
+        metalness: 0.6,
+        roughness: 0.15,
+      });
+      const matCellGap = new THREE.MeshStandardMaterial({
+        color: 0xd4af37, // gold/yellow backing material
+        roughness: 0.5,
+        metalness: 0.1,
+      });
+
+      const matBelt = new THREE.MeshStandardMaterial({
+        color: 0x1a1a1a,
+        roughness: 0.85,
+        metalness: 0.05,
+      });
+      const matPulley = new THREE.MeshStandardMaterial({
+        color: 0xc0c0c0, // aluminum silver color
+        metalness: 0.8,
+        roughness: 0.3,
+      });
+      const matRoller = new THREE.MeshStandardMaterial({
+        color: 0x222222,
+        roughness: 0.6,
+      });
+      const matRollerWheel = new THREE.MeshStandardMaterial({
+        color: 0x111111,
+        roughness: 0.7,
+      });
+
+      const matCarriage = new THREE.MeshStandardMaterial({
+        color: 0xb8bec6,
+        metalness: 0.7,
+        roughness: 0.5,
+      });
+      const matCarriageRed = new THREE.MeshStandardMaterial({
+        color: 0xdc2626,
+        metalness: 0.4,
+        roughness: 0.45,
+      });
+      const matRubber = new THREE.MeshStandardMaterial({
+        color: 0x111111,
+        roughness: 0.95,
+      });
+      const matBrush = new THREE.MeshStandardMaterial({
+        color: 0xea580c,
+        roughness: 0.95,
+      });
+      const matBrushTip = new THREE.MeshStandardMaterial({
+        color: 0xfb923c,
+        roughness: 0.98,
+      });
+      const matBrushSpine = new THREE.MeshStandardMaterial({
+        color: 0x6b7280,
+        metalness: 0.6,
+        roughness: 0.5,
+      });
+      const matMotor = new THREE.MeshStandardMaterial({
+        color: 0x2a2a2a,
+        metalness: 0.6,
+        roughness: 0.55,
+      });
+      const matMotorCap = new THREE.MeshStandardMaterial({
+        color: 0x4a4a4a,
+        metalness: 0.5,
+        roughness: 0.6,
+      });
+      const matWire = new THREE.MeshStandardMaterial({
+        color: 0xb91c1c,
+        roughness: 0.7,
+      });
+      const matWireBlk = new THREE.MeshStandardMaterial({
+        color: 0x111827,
+        roughness: 0.7,
+      });
+      const matLED = new THREE.MeshStandardMaterial({
+        color: 0x86efac,
+        emissive: 0x16a34a,
+        emissiveIntensity: 0.4,
+      });
+
+      // ── Helper: V-Slot 2020 profile (extruded) ────────────────────────────────
+      // Cross section: 20×20 mm square with a T-slot groove on each face.
+      // We'll fake it with a base box + 4 inset slots (long boxes) for visual cue.
+      function makeVSlot2020(length, axis = "y") {
+        const grp = new THREE.Group();
+        const T = 0.2; // 20mm
+        const L = length;
+        // Main extrusion
+        const bodyGeom =
+          axis === "y"
+            ? new THREE.BoxGeometry(T, L, T)
+            : axis === "x"
+              ? new THREE.BoxGeometry(L, T, T)
+              : new THREE.BoxGeometry(T, T, L);
+        const body = new THREE.Mesh(bodyGeom, matAlu);
+        body.castShadow = true;
+        body.receiveShadow = true;
+        grp.add(body);
+
+        // T-slot grooves (darker channels) on each of the 4 long faces
+        const slotMat = new THREE.MeshStandardMaterial({
+          color: 0x6b7280,
+          metalness: 0.5,
+          roughness: 0.7,
+        });
+        const slotW = 0.06,
+          slotD = 0.025;
+        function slotOnFace(nx, nz) {
+          // For axis='y': slot goes along Y; for axis='x': along X; for 'z': along Z
+          let dims;
+          if (axis === "y") dims = [slotW, L * 0.99, slotD];
+          else if (axis === "x") dims = [L * 0.99, slotW, slotD];
+          else dims = [slotW, slotD, L * 0.99];
+          const s = new THREE.Mesh(new THREE.BoxGeometry(...dims), slotMat);
+          if (axis === "y")
+            s.position.set(
+              nx * (T / 2 - slotD / 2 + 0.001),
+              0,
+              nz * (T / 2 - slotD / 2 + 0.001),
+            );
+          else if (axis === "x")
+            s.position.set(
+              0,
+              nx * (T / 2 - slotD / 2 + 0.001),
+              nz * (T / 2 - slotD / 2 + 0.001),
+            );
+          else
+            s.position.set(
+              nx * (T / 2 - slotD / 2 + 0.001),
+              nz * (T / 2 - slotD / 2 + 0.001),
+              0,
+            );
+          grp.add(s);
+        }
+        // Two slots on left/right faces
+        slotOnFace(-1, 0);
+        slotOnFace(1, 0);
+        // Two slots on front/back faces (rotate the second pair)
+        if (axis === "y") {
+          const sm = new THREE.MeshStandardMaterial({
+            color: 0x6b7280,
+            metalness: 0.5,
+            roughness: 0.7,
+          });
+          const dimsZ = [slotD, L * 0.99, slotW];
+          const a = new THREE.Mesh(new THREE.BoxGeometry(...dimsZ), sm);
+          a.position.set(0, 0, -(T / 2 - slotD / 2 + 0.001));
+          const b = new THREE.Mesh(new THREE.BoxGeometry(...dimsZ), sm);
+          b.position.set(0, 0, T / 2 - slotD / 2 + 0.001);
+          grp.add(a);
+          grp.add(b);
+        }
+        return grp;
+      }
+
+      // ── Build rig ──────────────────────────────────────────────────────────────
+      const rig = new THREE.Group();
+      scene.add(rig);
+
+      // Panel-plane geometry constants used by stand placement below
+      const panelX = PANEL_W; // 5.41 (horizontal, in panel plane)
+      const panelY = PANEL_H; // 8.45 (vertical, travel direction)
+      const TRAVEL_Y = panelY - 0.7; // increased travel range to reach closer to top LS
+
+      // Panel mount: pivot at bottom-center of panel.
+      // Panel sits at PIVOT_Y above floor, tilted by TILT around X.
+      const PIVOT_Y = 5.0; // height where panel bottom-center pivots (above floor)
+      const PIVOT_Z = 0; // X/Z origin
+
+      // Single-post stand with horizontal mounting bar (like flag pole)
+      {
+        const stand = new THREE.Group();
+        const barW = 0.2,
+          barH = 0.18;
+
+        // Cross-shaped base: two crossing bars at the floor
+        const barLen = 4.4;
+        const b1 = new THREE.Mesh(
+          new THREE.BoxGeometry(barLen, barH, barW),
+          matGalv,
+        );
+        b1.position.set(0, barH / 2, 0);
+        b1.castShadow = true;
+        b1.receiveShadow = true;
+        stand.add(b1);
+        const b2 = new THREE.Mesh(
+          new THREE.BoxGeometry(barW, barH, barLen),
+          matGalv,
+        );
+        b2.position.set(0, barH / 2, 0);
+        b2.castShadow = true;
+        b2.receiveShadow = true;
+        stand.add(b2);
+
+        // Foot caps at the four ends of the +
+        const footMat = new THREE.MeshStandardMaterial({
+          color: 0xd6d3d1,
+          roughness: 0.85,
+        });
+        const footPts = [
+          [barLen / 2 - 0.1, 0],
+          [-barLen / 2 + 0.1, 0],
+          [0, barLen / 2 - 0.1],
+          [0, -barLen / 2 + 0.1],
+        ];
+        footPts.forEach(([fx, fz]) => {
+          const f = new THREE.Mesh(
+            new THREE.BoxGeometry(0.3, 0.08, 0.3),
+            footMat,
+          );
+          f.position.set(fx, 0.04, fz);
+          stand.add(f);
+        });
+
+        // Single vertical column (center, like flag pole)
+        const colLen = PIVOT_Y - barH;
+        const col = new THREE.Mesh(
+          new THREE.BoxGeometry(0.24, colLen, 0.24),
+          matGalv,
+        );
+        col.castShadow = true;
+        col.position.set(0, barH + colLen / 2, 0);
+        stand.add(col);
+
+        // Horizontal mounting bar at top (half panel HEIGHT)
+        // Like letter "T" - bar is CENTERED on vertical pole
+        // Bar extends equally up and down from pole top, tilted 45° to match panel
+        const mountBarLen = PANEL_H / 2; // half panel HEIGHT (4.225 units)
+        const mountBar = new THREE.Mesh(
+          new THREE.BoxGeometry(0.2, mountBarLen, 0.2), // Y is length direction
+          matGalv,
+        );
+        mountBar.castShadow = true;
+
+        // Rotate to match panel tilt (panel uses -TILT around X)
+        mountBar.rotation.x = -TILT;
+
+        // Position: bar CENTERED at pole top (PIVOT_Y)
+        // Bar extends equally in both directions from center point
+        // No offset needed - center of bar is at pole top
+        mountBar.position.set(0, PIVOT_Y, -0.2); // slight Z offset to be below panel surface
+        stand.add(mountBar);
+
+        // Add cross bars at both ends (top and bottom) - full panel width
+        // These brackets connect to panel edges (left-right)
+        const crossBarLen = PANEL_W; // full panel width
+
+        // Calculate positions of top and bottom ends of the tilted bar
+        const halfLen = mountBarLen / 2;
+
+        // Top cross bar (at upper end of mounting bar)
+        const topCrossBar = new THREE.Mesh(
+          new THREE.BoxGeometry(crossBarLen, 0.2, 0.2), // X is length direction (left-right)
+          matGalv,
+        );
+        topCrossBar.castShadow = true;
+        topCrossBar.rotation.x = -TILT; // same tilt as main bar
+        const topY = PIVOT_Y + halfLen * Math.cos(TILT);
+        const topZ = -0.2 - halfLen * Math.sin(TILT);
+        topCrossBar.position.set(0, topY, topZ);
+        stand.add(topCrossBar);
+
+        // Bottom cross bar (at lower end of mounting bar)
+        const bottomCrossBar = new THREE.Mesh(
+          new THREE.BoxGeometry(crossBarLen, 0.2, 0.2), // X is length direction (left-right)
+          matGalv,
+        );
+        bottomCrossBar.castShadow = true;
+        bottomCrossBar.rotation.x = -TILT; // same tilt as main bar
+        const bottomY = PIVOT_Y - halfLen * Math.cos(TILT);
+        const bottomZ = -0.2 + halfLen * Math.sin(TILT);
+        bottomCrossBar.position.set(0, bottomY, bottomZ);
+        stand.add(bottomCrossBar);
+
+        rig.add(stand);
+      }
+
+      // ── Tilted panel-plane group: panel + V-Slot rails + carriage all live here ──
+      // Panel-plane local frame: +X = panel width (long edge, travel direction)
+      //                          +Y = panel height (short edge, across panel)
+      //                          +Z = panel surface normal (outward)
+      // We tilt by rotating around X (panel-plane local X), so the long edge of the
+      // panel runs horizontally and the short edge tilts up/back.
+      // Wait — looking at the photo: the long edge of the panel is HORIZONTAL,
+      // the wiper is a horizontal bar that moves UP/DOWN along the short edge.
+      // Let me reconsider. The panel is 845 (long) × 541 (short). The wiper bar
+      // spans the long edge (845mm wide) and travels along the short edge (541mm).
+      // V-Slot rails are mounted on the two SHORT edges of the panel (left & right).
+      //
+      // So in panel-plane: panel is W=8.45 wide (X) × H=5.41 tall (Y).
+      // Wiper is a horizontal bar at some Y, full panel width along X.
+      // Carriage travels along Y (up/down in panel plane).
+      // Rails are on left/right edges (X = ±W/2), running along Y.
+      // Belt motor is at one corner (top-right per photo), brush motor on the carriage.
+
+      const panelPlane = new THREE.Group();
+      // Pivot at bottom-center of panel; sits on top of stand yoke at PIVOT_Y.
+      // Tilt back around X-axis so panel surface faces upward/forward.
+      panelPlane.rotation.x = -TILT;
+      panelPlane.position.set(0, PIVOT_Y + 0.1, 0);
+      rig.add(panelPlane);
+
+      // ── Solar panel ────────────────────────────────────────────────────────────
+      {
+        const pg = new THREE.Group();
+        // Glass body
+        const body = new THREE.Mesh(
+          new THREE.BoxGeometry(panelX, panelY, PANEL_T),
+          matPanelGlass,
+        );
+        body.castShadow = true;
+        body.receiveShadow = true;
+        pg.add(body);
+
+        // Aluminum bezel frame (4 sides)
+        const bezelW = 0.12,
+          bezelT = PANEL_T + 0.03;
+        function bezel(w, h, x, y) {
+          const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, bezelT), matAlu);
+          m.position.set(x, y, 0);
+          m.castShadow = true;
+          m.receiveShadow = true;
+          return m;
+        }
+        pg.add(bezel(panelX, bezelW, 0, panelY / 2 - bezelW / 2));
+        pg.add(bezel(panelX, bezelW, 0, -panelY / 2 + bezelW / 2));
+        pg.add(bezel(bezelW, panelY, panelX / 2 - bezelW / 2, 0));
+        pg.add(bezel(bezelW, panelY, -panelX / 2 + bezelW / 2, 0));
+
+        // Cell grid: portrait 4 cells wide × 9 cells tall to match the photo.
+        const cellsX = 4,
+          cellsY = 9;
+        const innerW = panelX - 0.4;
+        const innerH = panelY - 0.4;
+        const cw = innerW / cellsX;
+        const ch = innerH / cellsY;
+        const xL = -innerW / 2;
+        const yB = -innerH / 2;
+        const zFront = PANEL_T / 2 + 0.005;
+        const cellGeom = new THREE.PlaneGeometry(cw * 0.97, ch * 0.97); // larger cells, smaller gaps
+
+        // Busbar material (silver lines on cells)
+        const matBusbar = new THREE.MeshStandardMaterial({
+          color: 0xc0c0c0,
+          metalness: 0.9,
+          roughness: 0.2,
+        });
+
+        for (let i = 0; i < cellsX; i++) {
+          for (let j = 0; j < cellsY; j++) {
+            const c = new THREE.Mesh(cellGeom, matCellBlue);
+            c.position.set(xL + cw * (i + 0.5), yB + ch * (j + 0.5), zFront);
+            pg.add(c);
+
+            // Add 3 vertical busbar lines on each cell
+            const busbarWidth = 0.008;
+            const busbarHeight = ch * 0.92;
+            for (let b = 0; b < 3; b++) {
+              const busbar = new THREE.Mesh(
+                new THREE.PlaneGeometry(busbarWidth, busbarHeight),
+                matBusbar,
+              );
+              const xOffset = (b - 1) * (cw * 0.3); // -0.3, 0, +0.3 of cell width
+              busbar.position.set(
+                xL + cw * (i + 0.5) + xOffset,
+                yB + ch * (j + 0.5),
+                zFront + 0.002,
+              );
+              pg.add(busbar);
+            }
+
+            // corner cuts (mono-c look) — triangular cuts at corners
+            const cornerSize = cw * 0.13; // size of triangular cut (larger)
+            const cornerMat = matCellGap;
+
+            // Create right-angle triangle geometry for corner cuts
+            // Triangle with right angle at origin, extending along +X and +Y
+            const triangleShape = new THREE.Shape();
+            triangleShape.moveTo(0, 0);
+            triangleShape.lineTo(cornerSize, 0);
+            triangleShape.lineTo(0, cornerSize);
+            triangleShape.lineTo(0, 0);
+            const triangleGeom = new THREE.ShapeGeometry(triangleShape);
+
+            // Position triangles at each corner with right angle at corner
+            // Hypotenuse (sisi miring) faces inward toward cell center
+            [
+              [-1, -1, 0], // bottom-left: right angle at corner, extends right and up
+              [1, -1, Math.PI / 2], // bottom-right: right angle at corner, extends left and up
+              [-1, 1, -Math.PI / 2], // top-left: right angle at corner, extends right and down
+              [1, 1, Math.PI], // top-right: right angle at corner, extends left and down
+            ].forEach(([sx, sy, rot]) => {
+              const tri = new THREE.Mesh(triangleGeom, cornerMat);
+              // Position at exact corner of cell (right angle of triangle at corner)
+              tri.position.set(
+                xL + cw * (i + 0.5) + sx * (cw * 0.485),
+                yB + ch * (j + 0.5) + sy * (ch * 0.485),
+                zFront + 0.001,
+              );
+              tri.rotation.z = rot;
+              pg.add(tri);
+            });
+          }
+        }
+
+        // Backsheet (yellow/gold backing material visible between cells)
+        const back = new THREE.Mesh(
+          new THREE.BoxGeometry(panelX - 0.05, panelY - 0.05, 0.02),
+          new THREE.MeshStandardMaterial({
+            color: 0xd4af37, // gold/yellow backing
+            roughness: 0.6,
+            metalness: 0.1,
+          }),
+        );
+        back.position.z = -PANEL_T / 2 - 0.012;
+        pg.add(back);
+
+        panelPlane.add(pg);
+      }
+
+      // ── V-Slot 2020 rails on left/right edges (running along Y, panel-local) ──
+      // Rails sit BESIDE the panel (outboard of the panel's width edges), not above.
+      const RAIL_X = panelX / 2 + 0.13; // outboard of the bezel by half a 2020 profile
+      const RAIL_Z = 0; // co-planar with panel surface (beside, not above)
+      const RAIL_LEN = panelY; // exactly panel length, no offset
+      // Carriage / wiper / brush sit ABOVE the panel surface
+      const CARRIAGE_Z = PANEL_T / 2 + 0.16;
+
+      const railLeft = makeVSlot2020(RAIL_LEN, "y");
+      railLeft.position.set(-RAIL_X, 0, RAIL_Z);
+      panelPlane.add(railLeft);
+
+      const railRight = makeVSlot2020(RAIL_LEN, "y");
+      railRight.position.set(RAIL_X, 0, RAIL_Z);
+      panelPlane.add(railRight);
+
+      // ── Belt drive: pulleys at each rail end + belt looping around the rail ──
+      // (PULLEY_R, PULLEY_THICK, PULLEY_OFFSET_X, PULLEY_OFFSET_Z already defined globally above)
+
+      function makePulley(x, y, z) {
+        const g = new THREE.Group();
+        // Pulley disc — axis along X (panel-local horizontal), so pulley spins around X.
+        // Belt strands then lie at +Z and -Z relative to the rail (front/back of V-Slot).
+        const disc = new THREE.Mesh(
+          new THREE.CylinderGeometry(PULLEY_R, PULLEY_R, PULLEY_THICK, 24),
+          matPulley,
+        );
+        disc.rotation.z = Math.PI / 2; // axis along X
+        g.add(disc);
+        // Flange rings on both sides - aluminum color
+        const flangeMat = new THREE.MeshStandardMaterial({
+          color: 0xc0c0c0, // aluminum silver
+          metalness: 0.8,
+          roughness: 0.3,
+        });
+        [-1, 1].forEach((s) => {
+          const fl = new THREE.Mesh(
+            new THREE.CylinderGeometry(
+              PULLEY_R + 0.015,
+              PULLEY_R + 0.015,
+              0.012,
+              24,
+            ),
+            flangeMat,
+          );
+          fl.rotation.z = Math.PI / 2;
+          fl.position.x = s * (PULLEY_THICK / 2 + 0.006);
+          g.add(fl);
+        });
+        // Axle along X
+        const ax = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.025, 0.025, PULLEY_THICK + 0.2, 12),
+          matBolt,
+        );
+        ax.rotation.z = Math.PI / 2;
+        g.add(ax);
+        g.position.set(x, y, z);
+        return g;
+      }
+
+      // Connector/bracket between rail end and pulley
+      function makePulleyConnector(x, y, z) {
+        const connector = new THREE.Mesh(
+          new THREE.BoxGeometry(0.22, 0.15, 0.22), // small bracket
+          matAluDark,
+        );
+        connector.position.set(x, y, z);
+        return connector;
+      }
+
+      // Pulleys at the TOP and BOTTOM ends of each V-Slot rail.
+      // Pulleys are OUTSIDE the rail ends, with connectors between rail and pulley
+      const pulleyOffset = 0.25; // distance from rail end to pulley center
+
+      // Top pulleys (outside rail ends)
+      const pulleyTL = makePulley(-RAIL_X, RAIL_LEN / 2 + pulleyOffset, RAIL_Z);
+      const pulleyTR = makePulley(RAIL_X, RAIL_LEN / 2 + pulleyOffset, RAIL_Z);
+      // Bottom pulleys (outside rail ends)
+      const pulleyBL = makePulley(
+        -RAIL_X,
+        -RAIL_LEN / 2 - pulleyOffset,
+        RAIL_Z,
+      );
+      const pulleyBR = makePulley(RAIL_X, -RAIL_LEN / 2 - pulleyOffset, RAIL_Z);
+
+      panelPlane.add(pulleyTL);
+      panelPlane.add(pulleyBL);
+      panelPlane.add(pulleyTR);
+      panelPlane.add(pulleyBR);
+
+      // Add connectors between rail ends and pulleys
+      const connectorTL = makePulleyConnector(
+        -RAIL_X,
+        RAIL_LEN / 2 + pulleyOffset / 2,
+        RAIL_Z,
+      );
+      const connectorTR = makePulleyConnector(
+        RAIL_X,
+        RAIL_LEN / 2 + pulleyOffset / 2,
+        RAIL_Z,
+      );
+      const connectorBL = makePulleyConnector(
+        -RAIL_X,
+        -RAIL_LEN / 2 - pulleyOffset / 2,
+        RAIL_Z,
+      );
+      const connectorBR = makePulleyConnector(
+        RAIL_X,
+        -RAIL_LEN / 2 - pulleyOffset / 2,
+        RAIL_Z,
+      );
+
+      panelPlane.add(connectorTL);
+      panelPlane.add(connectorTR);
+      panelPlane.add(connectorBL);
+      panelPlane.add(connectorBR);
+
+      // Belt strands — front (+Z) and back (-Z) of the rail, both centered on rail's X.
+      const beltStrands = [];
+      const BELT_TRAVEL = RAIL_LEN + 2 * pulleyOffset; // extended to reach pulleys
+      const BELT_WIDTH = 0.02; // 2mm belt thickness
+      function makeBeltStrand(x, z) {
+        // Belt strand with 2mm thickness
+        const g = new THREE.BoxGeometry(
+          PULLEY_THICK + 0.01, // width along X to cover pulley
+          BELT_TRAVEL,
+          BELT_WIDTH, // 2mm thickness
+        );
+        const m = new THREE.Mesh(g, matBelt);
+        m.position.set(x, 0, z);
+        m.castShadow = true;
+        return m;
+      }
+      [-1, 1].forEach((side) => {
+        const baseX = side * RAIL_X;
+        // Front strand (top of pulley)
+        const front = makeBeltStrand(baseX, RAIL_Z + PULLEY_R + BELT_WIDTH / 2);
+        // Back strand (bottom of pulley)
+        const back = makeBeltStrand(baseX, RAIL_Z - PULLEY_R - BELT_WIDTH / 2);
+        panelPlane.add(front);
+        panelPlane.add(back);
+        beltStrands.push(front, back);
+      });
+
+      // Belt arcs (semicircles wrapping each pulley) — looping around top & bottom
+      function makeBeltArc(cx, cy, cz, sign) {
+        // sign: +1 wraps top (over the pulley), -1 wraps bottom (under)
+        // Make arc radius slightly larger than pulley to wrap around it
+        const BELT_WIDTH = 0.02; // 2mm belt thickness
+        const beltRadius = PULLEY_R + BELT_WIDTH / 2; // belt wraps around pulley
+        const curve = new THREE.EllipseCurve(
+          0,
+          0,
+          beltRadius,
+          beltRadius,
+          sign > 0 ? 0 : Math.PI,
+          sign > 0 ? Math.PI : Math.PI * 2,
+          false,
+          0,
+        );
+        const pts = curve
+          .getPoints(20)
+          .map((p) => new THREE.Vector3(0, p.x, p.y));
+        const path = new THREE.CatmullRomCurve3(pts);
+        const tg = new THREE.TubeGeometry(path, 20, BELT_WIDTH / 2, 8, false); // tube radius = half belt thickness
+        const m = new THREE.Mesh(tg, matBelt);
+        m.position.set(cx, cy, cz);
+        return m;
+      }
+      // One arc at each pulley (top arc wraps over, bottom arc wraps under)
+      // Updated positions to match pulleys outside rail ends
+      [
+        [-RAIL_X, RAIL_LEN / 2 + pulleyOffset, +1],
+        [-RAIL_X, -RAIL_LEN / 2 - pulleyOffset, -1],
+        [RAIL_X, RAIL_LEN / 2 + pulleyOffset, +1],
+        [RAIL_X, -RAIL_LEN / 2 - pulleyOffset, -1],
+      ].forEach(([x, y, sign]) => {
+        const arc = makeBeltArc(x, y, RAIL_Z, sign);
+        panelPlane.add(arc);
+      });
+
+      // ── Wiper motor (M1 — drives the belt via top-right pulley)
+      // Motor is directly connected to pulley shaft
+      {
+        const mGrp = new THREE.Group();
+        const body = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.18, 0.18, 0.5, 24),
+          matMotor,
+        );
+        body.rotation.z = Math.PI / 2; // axis along X (same as pulley)
+        body.castShadow = true;
+        mGrp.add(body);
+        const cap = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.13, 0.13, 0.12, 18),
+          matMotorCap,
+        );
+        cap.rotation.z = Math.PI / 2;
+        cap.position.x = -0.31; // cap on left side (toward panel center)
+        mGrp.add(cap);
+        // Shaft connecting motor to pulley (extends from motor to pulley center)
+        const shaft = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.03, 0.03, 0.3, 12),
+          matAluDark,
+        );
+        shaft.rotation.z = Math.PI / 2;
+        shaft.position.x = 0.4; // shaft extends to right (toward pulley)
+        mGrp.add(shaft);
+        // Mounting bracket
+        const brkt = new THREE.Mesh(
+          new THREE.BoxGeometry(0.08, 0.45, 0.45),
+          matAluDark,
+        );
+        brkt.position.x = 0.0;
+        mGrp.add(brkt);
+
+        // Position: motor is INSIDE (left of pulley), between pulley and panel
+        // Motor shaft connects to pulley on the right
+        // [Motor]---shaft---[Pulley][Panel]
+        mGrp.position.set(
+          RAIL_X - 0.5, // offset to LEFT of pulley (inside, toward panel center)
+          RAIL_LEN / 2 + pulleyOffset, // same Y as top pulley
+          RAIL_Z, // same Z as pulley
+        );
+        panelPlane.add(mGrp);
+      }
+
+      // ── Carriage (wiper bar + brush + roller blocks) ───────────
+      const carriage = new THREE.Group();
+      panelPlane.add(carriage);
+
+      // Carriage cross-bar using V-slot (spans panel X direction — full width across both rails)
+      {
+        const barLen = panelX + 0.6; // a bit wider than panel to reach beyond rails
+        // Use V-slot instead of simple box
+        const vslotBar = makeVSlot2020(barLen, "x");
+        vslotBar.position.set(0, 0, CARRIAGE_Z);
+        carriage.add(vslotBar);
+
+        // Small red end caps (matches the red detail visible in photo)
+        [-1, 1].forEach((s) => {
+          const cap = new THREE.Mesh(
+            new THREE.BoxGeometry(0.18, 0.18, 0.26),
+            matCarriageRed,
+          );
+          cap.position.set(s * (barLen / 2 - 0.09), 0, CARRIAGE_Z);
+          cap.castShadow = true;
+          carriage.add(cap);
+        });
+      }
+
+      // Roller / ball-bearing wheel blocks (V-wheels) attached to carriage at each rail
+      function makeWheelBlock(side) {
+        const grp = new THREE.Group();
+        // Mounting plate
+        const plate = new THREE.Mesh(
+          new THREE.BoxGeometry(0.32, 0.5, 0.08),
+          matAluDark,
+        );
+        plate.position.set(0, 0, 0);
+        grp.add(plate);
+        // 3 V-wheels per side (top 2, bottom 1 for stability) — solid black wheels
+        function vWheel(yOff, xOff) {
+          const w = new THREE.Group();
+          const wheel = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.09, 0.09, 0.06, 20),
+            matRollerWheel,
+          );
+          wheel.rotation.x = Math.PI / 2; // axis along Z (rolls in Y direction)
+          w.add(wheel);
+          // hub
+          const hub = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.04, 0.04, 0.07, 12),
+            matBolt,
+          );
+          hub.rotation.x = Math.PI / 2;
+          w.add(hub);
+          w.position.set(xOff, yOff, 0);
+          return w;
+        }
+        // Position wheels to grip the rail's V-grooves
+        // Wheels sit on the inboard side (toward panel center) and outboard side
+        const inSign = -side; // inboard direction
+        grp.add(vWheel(0.18, inSign * 0.13)); // top wheel grips inboard groove
+        grp.add(vWheel(-0.18, inSign * 0.13)); // bottom wheel
+        grp.add(vWheel(0.0, -inSign * 0.13)); // mid wheel, outboard groove
+
+        // Position on the rail
+        grp.position.set(side * RAIL_X, 0, RAIL_Z);
+        return grp;
+      }
+      const wheelBlockL = makeWheelBlock(-1);
+      const wheelBlockR = makeWheelBlock(+1);
+      carriage.add(wheelBlockL);
+      carriage.add(wheelBlockR);
+
+      // Belt clamps (small blocks gripping the belt strand on each side)
+      function makeBeltClamp(side) {
+        const c = new THREE.Mesh(
+          new THREE.BoxGeometry(0.14, 0.14, 0.18),
+          new THREE.MeshStandardMaterial({
+            color: 0xa8b0b8,
+            metalness: 0.6,
+            roughness: 0.5,
+          }),
+        );
+        c.position.set(
+          side * (RAIL_X + PULLEY_OFFSET_X),
+          0,
+          RAIL_Z + PULLEY_R - 0.005,
+        );
+        c.castShadow = true;
+        return c;
+      }
+      carriage.add(makeBeltClamp(-1));
+      carriage.add(makeBeltClamp(+1));
+
+      // Wiper blade removed - no rubber blade or holder strip
+
+      // Brush assembly (cylindrical rotating brush, ahead of wiper)
+      const brushGroup = new THREE.Group();
+      {
+        // Spindle/shaft running along X (panel-local horizontal)
+        const spindle = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.04, 0.04, panelX - 0.1, 14),
+          matBrushSpine,
+        );
+        spindle.rotation.z = Math.PI / 2;
+        brushGroup.add(spindle);
+        // Inner core (orange)
+        const core = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.1, 0.1, panelX - 0.3, 24),
+          matBrush,
+        );
+        core.rotation.z = Math.PI / 2;
+        core.castShadow = true;
+        brushGroup.add(core);
+        // Fluffy bristle tufts — many thin radial fibers around the spindle
+        const tuftLen = panelX - 0.32;
+        const ringsCount = 72; // axial slices along brush (increased for denser bristles)
+        const tuftsPerRing = 28; // bristles per slice (increased for fuller brush)
+        const tuftGeom = new THREE.CylinderGeometry(0.006, 0.012, 0.18, 5);
+        for (let r = 0; r < ringsCount; r++) {
+          const xPos = -tuftLen / 2 + (r + 0.5) * (tuftLen / ringsCount);
+          for (let t = 0; t < tuftsPerRing; t++) {
+            // Stagger angle per ring for organic look
+            const ang = (t / tuftsPerRing) * Math.PI * 2 + r * 0.18;
+            const jitter = Math.sin(r * 13.1 + t * 7.7) * 0.04;
+            const len = 0.17 + jitter;
+            const fiber = new THREE.Mesh(
+              tuftGeom,
+              (t + r) % 3 === 0 ? matBrushTip : matBrush,
+            );
+            // Position outward from spindle at radius 0.10 (core surface), pointing radially
+            fiber.position.set(
+              xPos,
+              Math.cos(ang) * (0.1 + len / 2),
+              Math.sin(ang) * (0.1 + len / 2),
+            );
+            fiber.scale.y = len / 0.18;
+            // Orient cylinder's +Y to face radial direction
+            fiber.lookAt(
+              new THREE.Vector3(xPos, Math.cos(ang) * 2.0, Math.sin(ang) * 2.0),
+            );
+            fiber.rotateX(Math.PI / 2);
+            brushGroup.add(fiber);
+          }
+        }
+      }
+      // Brush sits BELOW the carriage bar (negative Y direction)
+      brushGroup.position.set(0, -0.3, CARRIAGE_Z - 0.05);
+      carriage.add(brushGroup);
+
+      // End brackets (mount brush to carriage) - NOT in brushGroup so they don't rotate
+      const brktMat = new THREE.MeshStandardMaterial({
+        color: 0xa8b0b8,
+        metalness: 0.7,
+        roughness: 0.45,
+      });
+      [-1, 1].forEach((s) => {
+        // Vertical bracket connecting brush to V-slot bar
+        const b = new THREE.Mesh(
+          new THREE.BoxGeometry(0.08, 0.4, 0.08),
+          brktMat,
+        );
+        b.position.set(
+          s * ((panelX - 0.3) / 2 + 0.04),
+          -0.1,
+          CARRIAGE_Z - 0.05,
+        );
+        carriage.add(b);
+      });
+
+      // Brush motor (M2) - mounted on right side of brush, centered with brush axis
+      {
+        const mGrp = new THREE.Group();
+        const body = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.13, 0.13, 0.36, 20),
+          matMotor,
+        );
+        body.rotation.z = Math.PI / 2; // axis along X (same as brush)
+        body.castShadow = true;
+        mGrp.add(body);
+        const cap = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.1, 0.1, 0.1, 18),
+          matMotorCap,
+        );
+        cap.rotation.z = Math.PI / 2;
+        cap.position.x = 0.23; // cap on right side (away from brush)
+        mGrp.add(cap);
+        // Coupler joining brush spindle
+        const coupler = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.045, 0.045, 0.16, 12),
+          matAluDark,
+        );
+        coupler.rotation.z = Math.PI / 2;
+        coupler.position.x = -0.26; // coupler on left side (toward brush)
+        mGrp.add(coupler);
+        // Position motor at right end of brush, centered on brush axis
+        mGrp.position.set(panelX / 2 + 0.05, -0.3, CARRIAGE_Z - 0.05);
+        carriage.add(mGrp);
+      }
+
+      // Water spray bar (pump) - simple cylinder without holes, NOT in brushGroup
+      {
+        const sprayBarLen = panelX - 0.4; // length along wiper
+        const sprayBarRadius = 0.04; // 40mm diameter pipe
+
+        // Main spray bar pipe (blue/water color)
+        const sprayBarMat = new THREE.MeshStandardMaterial({
+          color: 0x3b82f6, // blue color for water pipe
+          metalness: 0.6,
+          roughness: 0.3,
+        });
+        const sprayBar = new THREE.Mesh(
+          new THREE.CylinderGeometry(
+            sprayBarRadius,
+            sprayBarRadius,
+            sprayBarLen,
+            16,
+          ),
+          sprayBarMat,
+        );
+        sprayBar.rotation.z = Math.PI / 2; // axis along X
+        sprayBar.castShadow = true;
+
+        // Position spray bar in front of brush (toward panel), NOT rotating with brush
+        sprayBar.position.set(0, -0.15, CARRIAGE_Z + 0.1);
+        carriage.add(sprayBar);
+      }
+
+      // Water spray particle system
+      const waterParticles = [];
+      const particleCount = 200; // number of water droplets (increased for denser spray)
+      const particleGeom = new THREE.SphereGeometry(0.02, 6, 6); // slightly larger droplets
+      const particleMat = new THREE.MeshStandardMaterial({
+        color: 0x60a5fa,
+        transparent: true,
+        opacity: 0.8,
+        metalness: 0.3,
+        roughness: 0.2,
+      });
+
+      for (let i = 0; i < particleCount; i++) {
+        const particle = new THREE.Mesh(particleGeom, particleMat);
+        particle.visible = false;
+        particle.userData = {
+          velocity: new THREE.Vector3(),
+          life: 0,
+          maxLife: 0,
+        };
+        carriage.add(particle);
+        waterParticles.push(particle);
+      }
+
+      // Particle spawner state
+      let particleSpawnTimer = 0;
+      const spawnInterval = 0.01; // spawn particles every 10ms (faster spawn rate)
+
+      // ── Limit switches (top + bottom of travel) ────────────────────────────────
+      function makeLimitSwitch(y) {
+        const g = new THREE.Group();
+        const housing = new THREE.Mesh(
+          new THREE.BoxGeometry(0.28, 0.16, 0.22),
+          new THREE.MeshStandardMaterial({
+            color: 0x1f2937,
+            metalness: 0.4,
+            roughness: 0.6,
+          }),
+        );
+        g.add(housing);
+        // Lever
+        const lever = new THREE.Mesh(
+          new THREE.BoxGeometry(0.14, 0.02, 0.1),
+          matAluDark,
+        );
+        lever.position.set(0.1, 0.05, 0.06);
+        g.add(lever);
+        // LED
+        const led = new THREE.Mesh(
+          new THREE.SphereGeometry(0.04, 12, 12),
+          matLED.clone(),
+        );
+        led.position.set(0, 0.1, 0);
+        g.add(led);
+        g.userData.led = led;
+        g.position.set(-RAIL_X - 0.1, y, RAIL_Z + 0.1);
+        return g;
+      }
+      const ls1 = makeLimitSwitch(panelY / 2 - 0.15); // top - moved closer to panel edge
+      const ls2 = makeLimitSwitch(-panelY / 2 + 0.15); // bottom - moved closer to panel edge
+      panelPlane.add(ls1);
+      panelPlane.add(ls2);
+
+      // Camera target around panel center
+      controls.target.set(0, 4, 0.5);
+
+      // ── State ──────────────────────────────────────────────────────────────────
+      const state = {
+        position_mm: 0,
+        target_mm: 0,
+        rpm: 0,
+        rpm_target: 0,
+        brush_rpm: 0,
+        encoder: 0,
+        current_amp: 0,
+        brush_active: false,
+        pump_active: false,
+        estop: false,
+        fsm: "IDLE",
+        cycleStep: 0,
+        queueCycle: false,
+        // ── Real-time link ──
+        live: false, // true saat menerima data nyata dari ESP32
+        lastDataTime: 0, // timestamp data nyata terakhir (ms)
+        maxEncoder: 1, // estimasi count penuh travel (auto-kalibrasi)
+        progress: 0, // progress pembersihan nyata (0–100%)
+        ls1: false,
+        ls2: false,
+      };
+
+      // Pemetaan nama state FSM ESP32 → kunci visual internal.
+      // ESP32 mengirim nama enum English: IDLE, PRE_CHECK, MOVING_TO_START,
+      // SPRAYING_WATER, CLEANING_FORWARD, CLEANING_BACKWARD, STOPPING,
+      // DONE, ERROR_STATE.
+      const ESP32_STATE_MAP = {
+        IDLE: "IDLE",
+        PRE_CHECK: "HOMING",
+        MOVING_TO_START: "HOMING",
+        SPRAYING_WATER: "SPRAYING",
+        CLEANING_FORWARD: "CLEANING_DOWN",
+        CLEANING_BACKWARD: "CLEANING_UP",
+        STOPPING: "RETURNING",
+        DONE: "DONE",
+        ERROR_STATE: "ERROR",
+        UNKNOWN: "IDLE",
+      };
+
+      const FSM_DESC = {
+        IDLE: "Siaga - Menunggu perintah pembersihan",
+        HOMING: "Persiapan - Pemeriksaan awal dan bergerak ke posisi start",
+        SPRAYING: "Penyemprotan air - Pompa aktif membasahi panel",
+        CLEANING_DOWN:
+          "Pembersihan maju - Wiper dan brush aktif, bergerak ke bawah (LS1 → LS2)",
+        CLEANING_UP:
+          "Pembersihan mundur - Wiper dan brush aktif, kembali ke atas (LS2 → LS1)",
+        RETURNING: "Menghentikan - Mematikan semua motor dan pompa",
+        DONE: "Selesai - Siklus pembersihan tuntas",
+        ERROR: "Error - Terjadi kesalahan, periksa sistem",
+        ESTOP: "EMERGENCY STOP - Semua aktuator dimatikan",
+      };
+      const FSM_GLYPH = {
+        IDLE: "◇",
+        HOMING: "↑",
+        SPRAYING: "💧",
+        CLEANING_DOWN: "↓",
+        CLEANING_UP: "↑",
+        RETURNING: "⤴",
+        DONE: "✓",
+        ERROR: "!",
+        ESTOP: "!",
+      };
+
+      function setFSM(name) {
+        state.fsm = name;
+        const fsmName = document.getElementById("fsm-name");
+        const fsmDesc = document.getElementById("fsm-desc");
+        const fsmIcon = document.getElementById("fsm-icon");
+        const stateText = document.getElementById("state-text");
+        const pill = document.getElementById("state-pill");
+
+        if (fsmName) fsmName.textContent = name;
+        if (fsmDesc) fsmDesc.textContent = FSM_DESC[name] || "—";
+        if (fsmIcon) fsmIcon.textContent = FSM_GLYPH[name] || "◇";
+        if (stateText) stateText.textContent = name;
+
+        if (pill) {
+          pill.classList.remove("warn", "err");
+          if (name === "ERROR" || name === "ESTOP") pill.classList.add("err");
+          else if (name !== "IDLE") pill.classList.add("warn");
+        }
+      }
+
+      const ui = {
+        posMM: document.getElementById("pos-mm"),
+        posPct: document.getElementById("pos-pct"),
+        posBar: document.getElementById("pos-bar"),
+        rpmCur: document.getElementById("rpm-cur"),
+        brushRpm: document.getElementById("brush-rpm"),
+        encVal: document.getElementById("enc-val"),
+        curAmp: document.getElementById("cur-amp"),
+        ls1Light: document.getElementById("ls1-light"),
+        ls2Light: document.getElementById("ls2-light"),
+        wiperLight: document.getElementById("wiper-light"),
+        brushLight: document.getElementById("brush-light"),
+        pumpLight: document.getElementById("pump-light"),
+        manualSlider: document.getElementById("manual-slider"),
+        manualVal: document.getElementById("manual-val"),
+        estopOverlay: document.getElementById("estop-overlay"),
+      };
+
+      document.getElementById("btn-home").addEventListener("click", () => {
+        if (state.estop) return;
+        state.target_mm = TRAVEL_MM;
+        setFSM("HOMING");
+      });
+      document.getElementById("btn-cycle").addEventListener("click", () => {
+        if (state.estop) return;
+        state.cycleStep = 0;
+        state.target_mm = TRAVEL_MM;
+        setFSM("HOMING");
+        state.queueCycle = true;
+      });
+      document.getElementById("btn-brush").addEventListener("click", () => {
+        if (state.estop) return;
+        state.brush_active = !state.brush_active;
+      });
+      document.getElementById("btn-pump").addEventListener("click", () => {
+        if (state.estop) return;
+        state.pump_active = !state.pump_active;
+      });
+      document
+        .getElementById("btn-estop")
+        .addEventListener("click", () => triggerEstop());
+      document.getElementById("estop-reset").addEventListener("click", () => {
+        state.estop = false;
+        ui.estopOverlay.classList.remove("active");
+        setFSM("IDLE");
+      });
+      ui.manualSlider.addEventListener("input", (e) => {
+        if (state.estop) {
+          ui.manualSlider.value = state.position_mm;
+          return;
+        }
+        state.target_mm = parseFloat(e.target.value);
+        ui.manualVal.textContent = Math.round(state.target_mm);
+        state.queueCycle = false;
+        if (
+          state.fsm === "IDLE" ||
+          state.fsm === "HOMING" ||
+          state.fsm === "RETURNING"
+        )
+          setFSM("RETURNING");
+      });
+
+      function triggerEstop() {
+        state.estop = true;
+        state.brush_active = false;
+        state.pump_active = false;
+        state.target_mm = state.position_mm;
+        state.queueCycle = false;
+        setFSM("ESTOP");
+        ui.estopOverlay.classList.add("active");
+      }
+
+      window.addEventListener("keydown", (e) => {
+        if (e.repeat) return;
+        if (e.code === "Space") {
+          e.preventDefault();
+          triggerEstop();
+        } else if (e.key === "h" || e.key === "H")
+          document.getElementById("btn-home").click();
+        else if (e.key === "c" || e.key === "C")
+          document.getElementById("btn-cycle").click();
+        else if (e.key === "b" || e.key === "B")
+          document.getElementById("btn-brush").click();
+        else if (e.key === "p" || e.key === "P")
+          document.getElementById("btn-pump").click();
+      });
+
+      document.querySelectorAll("#view-seg button").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document
+            .querySelectorAll("#view-seg button")
+            .forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          const v = btn.dataset.view;
+          const tgt = new THREE.Vector3(0, 4, 0.5); // target center panel
+          const positions = {
+            iso: new THREE.Vector3(14, 12, 14), // isometric view - slightly higher and further
+            front: new THREE.Vector3(0, 4, 18), // front view - centered, further back
+            side: new THREE.Vector3(20, 4, 0.5), // side view - from right, centered height
+          };
+          animateCamera(positions[v], tgt);
+        });
+      });
+
+      function animateCamera(toPos, toTgt) {
+        const fromPos = camera.position.clone();
+        const fromTgt = controls.target.clone();
+        const start = performance.now();
+        const dur = 600;
+        function step() {
+          const t = Math.min(1, (performance.now() - start) / dur);
+          const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+          camera.position.lerpVectors(fromPos, toPos, e);
+          controls.target.lerpVectors(fromTgt, toTgt, e);
+          if (t < 1) requestAnimationFrame(step);
+        }
+        step();
+      }
+
+      // ── Terapkan data telemetri NYATA dari ESP32 (via WebSocket /ws) ──
+      // Field status dari RPi: esp32_state, wiper_rpm, brush_target (brush_rpm
+      // selalu 0 karena tanpa encoder), pump, ls1, ls2, position (encoder count),
+      // esp32_connected.
+      function applyTelemetry(d) {
+        if (!d || typeof d !== "object") return;
+
+        // Hanya proses bila ESP32 benar-benar terhubung (hindari data basi).
+        const espConnected =
+          d.esp32_connected === true || d.serial_open === true;
+        if (!espConnected) {
+          // ESP32 terputus → tandai offline, JANGAN simulasikan apa pun.
+          state.live = false;
+          updateLinkPill(false);
+          return;
+        }
+
+        state.live = true;
+        state.lastDataTime = performance.now();
+        updateLinkPill(true);
+
+        // State FSM (nama Indonesia dari ESP32 → kunci visual).
+        // RPi mengirim field "esp32_state" (status FSM); "state" dipertahankan
+        // sebagai fallback bila ada sumber lain.
+        const _sname =
+          typeof d.esp32_state === "string"
+            ? d.esp32_state
+            : typeof d.state === "string"
+              ? d.state
+              : null;
+        if (_sname) {
+          const mapped = ESP32_STATE_MAP[_sname] || "IDLE";
+          if (mapped !== state.fsm) setFSM(mapped);
+        }
+
+        // Wiper RPM (langsung dari encoder ESP32)
+        if (typeof d.wiper_rpm === "number") state.rpm = d.wiper_rpm;
+
+        // Brush: TIDAK punya encoder → brush_rpm aktual selalu 0 dari ESP32.
+        // Pakai brush_target (RPM yang diperintahkan) untuk status aktif & animasi.
+        const _btarget =
+          typeof d.brush_target === "number"
+            ? d.brush_target
+            : typeof d.brush_rpm === "number"
+              ? d.brush_rpm
+              : null;
+        if (_btarget !== null) {
+          state.brush_rpm = _btarget;
+          state.brush_active = _btarget > 0.5;
+        }
+
+        // Pompa
+        if (typeof d.pump === "boolean") state.pump_active = d.pump;
+
+        // Limit switch
+        state.ls1 = d.ls1 === true;
+        state.ls2 = d.ls2 === true;
+
+        // Posisi: encoder ESP32 kini QUADRATURE (directional) + dikalibrasi di
+        // controller menjadi d.position_mm (0 = atas/home, ~800 mm = bawah). Maka
+        // posisi carriage 3D mengikuti posisi NYATA, bukan lagi sekadar animasi
+        // menuju ujung berdasarkan fase. Nilai encoder mentah hanya untuk tampilan.
+        if (typeof d.position === "number") {
+          state.encoder = Math.round(Math.abs(d.position));
+        }
+        // Target carriage = posisi nyata (konversi ke konvensi internal 3D:
+        // TRAVEL_MM = atas, 0 = bawah). Fallback ke fase FSM bila position_mm
+        // tak tersedia (mis. telemetri lama tanpa field tsb).
+        if (typeof d.position_mm === "number") {
+          const internal = TRAVEL_MM - d.position_mm;
+          state.target_mm = Math.max(0, Math.min(TRAVEL_MM, internal));
+        } else if (state.fsm === "CLEANING_DOWN") {
+          state.target_mm = 0;
+        } else if (
+          state.fsm === "CLEANING_UP" ||
+          state.fsm === "HOMING" ||
+          state.fsm === "RETURNING" ||
+          state.fsm === "SPRAYING"
+        ) {
+          state.target_mm = TRAVEL_MM;
+        }
+        // Snap posisi pasti di ujung berdasarkan limit switch (paling akurat).
+        if (state.ls1)
+          state.position_mm = TRAVEL_MM; // di atas (LS1)
+        else if (state.ls2) state.position_mm = 0; // di bawah (LS2)
+
+        // Progress pembersihan (data nyata dari ESP32, 0–100%)
+        if (typeof d.progress === "number") {
+          state.progress = Math.max(0, Math.min(100, Math.round(d.progress)));
+        }
+      }
+      window.applyTelemetry = applyTelemetry;
+
+      // ── Indikator koneksi (pill di header panel) ──
+      function updateLinkPill(online) {
+        const pill = document.getElementById("hb-pill");
+        const sub = document.getElementById("panel-sub");
+        if (pill) {
+          pill.classList.toggle("err", !online);
+          pill.innerHTML = online
+            ? '<span class="dot"></span>LIVE'
+            : '<span class="dot"></span>OFFLINE';
+        }
+        if (sub) {
+          sub.textContent = online
+            ? "data nyata ESP32 · real-time"
+            : "menunggu data ESP32…";
+        }
+        // Mode read-only: saat terhubung data nyata, kontrol manual dimatikan
+        // (visualisasi hanya mencerminkan robot, bukan mengendalikannya).
+        const ctrlIds = [
+          "btn-home",
+          "btn-cycle",
+          "btn-brush",
+          "btn-pump",
+          "btn-estop",
+          "manual-slider",
+        ];
+        ctrlIds.forEach((id) => {
+          const el = document.getElementById(id);
+          if (el) el.disabled = online;
+        });
+      }
+
+      // ── Koneksi WebSocket ke server (data robot nyata) ──
+      // Iframe ini dokumen terpisah, jadi punya koneksi /ws sendiri.
+      let _vizWS = null;
+      let _vizReconnectTimer = null;
+      function connectVizWebSocket() {
+        try {
+          const proto = location.protocol === "https:" ? "wss:" : "ws:";
+          _vizWS = new WebSocket(`${proto}//${location.host}/ws`);
+
+          _vizWS.onopen = () => {
+            // Minta status awal
+            try {
+              _vizWS.send(JSON.stringify({ type: "request_status" }));
+            } catch (e) {}
+          };
+
+          _vizWS.onmessage = (ev) => {
+            try {
+              const data = JSON.parse(ev.data);
+              applyTelemetry(data);
+            } catch (e) {
+              /* abaikan pesan non-JSON */
+            }
+          };
+
+          _vizWS.onclose = () => {
+            state.live = false;
+            updateLinkPill(false);
+            // Reconnect otomatis tiap 3 detik
+            if (!_vizReconnectTimer) {
+              _vizReconnectTimer = setTimeout(() => {
+                _vizReconnectTimer = null;
+                connectVizWebSocket();
+              }, 3000);
+            }
+          };
+
+          _vizWS.onerror = () => {
+            try {
+              _vizWS.close();
+            } catch (e) {}
+          };
+        } catch (e) {
+          updateLinkPill(false);
+          if (!_vizReconnectTimer) {
+            _vizReconnectTimer = setTimeout(() => {
+              _vizReconnectTimer = null;
+              connectVizWebSocket();
+            }, 3000);
+          }
+        }
+      }
+
+      // Watchdog: bila tidak ada data nyata > 6 detik, tandai offline.
+      setInterval(() => {
+        if (state.live && performance.now() - state.lastDataTime > 6000) {
+          state.live = false;
+          updateLinkPill(false);
+        }
+      }, 2000);
+
+      connectVizWebSocket();
+
+      // ── Animation loop ─────────────────────────────────────────────────────────
+      let lastT = performance.now();
+
+      function setLED(mesh, on, color) {
+        if (on) {
+          mesh.material.emissive.setHex(color);
+          mesh.material.emissiveIntensity = 1.4;
+          mesh.material.color.setHex(0x86efac);
+        } else {
+          mesh.material.emissive.setHex(0x14532d);
+          mesh.material.emissiveIntensity = 0.2;
+          mesh.material.color.setHex(0x86efac);
+        }
+      }
+
+      function tick() {
+        const now = performance.now();
+        const dt = Math.min(0.05, (now - lastT) / 1000);
+        lastT = now;
+
+        // ── Animasi posisi carriage menuju target (SELALU jalan: live & offline) ──
+        // Mode live: target di-set dari FASE FSM (encoder ESP32 akumulatif tanpa
+        // arah → tak bisa jadi posisi); LS men-snap posisi di ujung. Mode offline:
+        // target di-set oleh siklus preview di bawah.
+        const SPEED_MM_PER_S = 90;
+        let _move = 0;
+        {
+          const delta = state.target_mm - state.position_mm;
+          if (Math.abs(delta) > 0.1 && !state.estop) {
+            _move =
+              Math.sign(delta) * Math.min(Math.abs(delta), SPEED_MM_PER_S * dt);
+            state.position_mm += _move;
+          }
+        }
+
+        // ── SIMULASI FISIKA: hanya berjalan saat TIDAK ada data nyata ──
+        // Saat terhubung ke ESP32 (state.live), seluruh nilai (rpm, brush, pompa,
+        // FSM, target posisi) berasal dari data nyata. Blok ini hanya pratinjau
+        // OFFLINE (tanpa hardware) dan TIDAK menimpa data nyata.
+        if (!state.live) {
+          // Cycle FSM (preview lokal saja)
+          if (!state.estop && state.queueCycle) {
+            const atTarget = Math.abs(state.position_mm - state.target_mm) < 1;
+            if (atTarget) {
+              if (state.fsm === "HOMING") {
+                state.target_mm = 0;
+                state.brush_active = true;
+                setFSM("CLEANING_DOWN");
+              } else if (state.fsm === "CLEANING_DOWN") {
+                state.target_mm = TRAVEL_MM;
+                setFSM("CLEANING_UP");
+              } else if (state.fsm === "CLEANING_UP") {
+                state.brush_active = false;
+                state.queueCycle = false;
+                setFSM("IDLE");
+              }
+            }
+          }
+
+          state.rpm_target = state.estop
+            ? 0
+            : _move !== 0
+              ? Math.sign(_move) * 140
+              : 0;
+          state.rpm += (state.rpm_target - state.rpm) * Math.min(1, dt * 6);
+          if (Math.abs(state.rpm) < 0.5) state.rpm = 0;
+          const brushTargetRpm = state.brush_active && !state.estop ? 220 : 0;
+          state.brush_rpm +=
+            (brushTargetRpm - state.brush_rpm) * Math.min(1, dt * 4);
+          if (Math.abs(state.brush_rpm) < 0.5) state.brush_rpm = 0;
+          state.encoder = Math.round(state.position_mm * 12);
+          state.current_amp = state.estop
+            ? 0
+            : Math.abs(state.rpm) / 240 + (state.brush_active ? 0.7 : 0);
+        }
+
+        // Apply carriage Y in panel-plane
+        // 0 mm → -TRAVEL_Y/2 (bottom), TRAVEL_MM mm → +TRAVEL_Y/2 (top)
+        const yLocal =
+          -TRAVEL_Y / 2 + (state.position_mm / TRAVEL_MM) * TRAVEL_Y;
+        carriage.position.y = yLocal;
+
+        // Pulley spin (visual) - rotate around X axis (pulley disc is rotated 90° on Z)
+        const pulleyOmega = (state.rpm / 60) * Math.PI * 2; // rad/s
+        [pulleyTL, pulleyBL, pulleyTR, pulleyBR].forEach((p) => {
+          p.children[0].rotation.x += pulleyOmega * dt; // disc spins about X axis
+        });
+
+        // Brush rotation (around X axis in panel-plane)
+        const brushOmega = (state.brush_rpm / 60) * Math.PI * 2;
+        brushGroup.rotation.x += brushOmega * dt;
+
+        // Water spray particles
+        if (state.pump_active && !state.estop) {
+          particleSpawnTimer += dt;
+          // Spawn new particles
+          while (particleSpawnTimer >= spawnInterval) {
+            particleSpawnTimer -= spawnInterval;
+            // Find inactive particle
+            const p = waterParticles.find((p) => !p.visible);
+            if (p) {
+              // Random position along spray bar (spawn from bottom of spray bar)
+              const xPos = (Math.random() - 0.5) * (panelX - 0.6);
+              p.position.set(xPos, -0.2, CARRIAGE_Z + 0.08); // lower Y position
+              // Velocity: more downward (stronger Y negative), minimal forward Z
+              p.userData.velocity.set(
+                (Math.random() - 0.5) * 0.3, // slight X spread
+                -1.2 - Math.random() * 0.6, // strong downward velocity (-1.2 to -1.8)
+                0.1 + Math.random() * 0.1, // very minimal forward (0.1 to 0.2)
+              );
+              p.userData.life = 0;
+              p.userData.maxLife = 0.3 + Math.random() * 0.2; // shorter life (0.3-0.5 seconds)
+              p.visible = true;
+              p.material.opacity = 0.8;
+            }
+          }
+        }
+
+        // Update all active particles
+        waterParticles.forEach((p) => {
+          if (!p.visible) return;
+          p.userData.life += dt;
+          if (p.userData.life >= p.userData.maxLife) {
+            p.visible = false;
+            return;
+          }
+          // Apply velocity
+          p.position.x += p.userData.velocity.x * dt;
+          p.position.y += p.userData.velocity.y * dt;
+          p.position.z += p.userData.velocity.z * dt;
+          // Stronger gravity for more downward effect
+          p.userData.velocity.y -= 3.0 * dt;
+          // Fade out near end of life
+          const lifeRatio = p.userData.life / p.userData.maxLife;
+          p.material.opacity = 0.8 * (1 - lifeRatio);
+          // Hide if hit panel or went too far down
+          if (p.position.z > CARRIAGE_Z + 0.5 || p.position.y < -6) {
+            p.visible = false;
+          }
+        });
+
+        // Limit switch: saat LIVE pakai status nyata dari ESP32, saat OFFLINE
+        // turunkan dari posisi (preview).
+        const atTop = state.live
+          ? state.ls1
+          : state.position_mm >= TRAVEL_MM - 1;
+        const atBottom = state.live ? state.ls2 : state.position_mm <= 1;
+        setLED(ls1.userData.led, atTop, 0x16a34a);
+        setLED(ls2.userData.led, atBottom, 0x16a34a);
+
+        // UI updates
+        ui.posMM.textContent = Math.round(state.position_mm);
+        const pct = (state.position_mm / TRAVEL_MM) * 100;
+        ui.posPct.textContent = pct.toFixed(1);
+        ui.posBar.style.width = pct + "%";
+        ui.rpmCur.textContent = Math.round(Math.abs(state.rpm));
+        ui.brushRpm.textContent = Math.round(state.brush_rpm);
+        ui.encVal.textContent = state.encoder.toLocaleString();
+        // Kolom "Progress" — data nyata saat LIVE, estimasi posisi saat OFFLINE
+        ui.curAmp.textContent = state.live ? state.progress : Math.round(pct);
+        ui.ls1Light.classList.toggle("on", atTop);
+        ui.ls2Light.classList.toggle("on", atBottom);
+        ui.wiperLight.classList.toggle("on", Math.abs(state.rpm) > 1);
+        ui.brushLight.classList.toggle("on", state.brush_active);
+        ui.pumpLight.classList.toggle("on", state.pump_active);
+        // Slider manual hanya untuk preview offline; saat live ikuti posisi nyata
+        if (document.activeElement !== ui.manualSlider) {
+          ui.manualSlider.value = state.position_mm;
+          ui.manualVal.textContent = Math.round(state.position_mm);
+        }
+
+        controls.update();
+        renderer.render(scene, camera);
+        requestAnimationFrame(tick);
+      }
+
+      function resize() {
+        const w = wrap.clientWidth,
+          h = wrap.clientHeight;
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        renderer.setSize(w, h);
+      }
+      window.addEventListener("resize", resize);
+
+      setFSM("IDLE");
+      setTimeout(
+        () => document.getElementById("loading").classList.add("hide"),
+        300,
+      );
+      requestAnimationFrame(tick);
+
+      // brief intro auto-rotate
+      {
+        const introUntil = performance.now() + 1200;
+        (function intro() {
+          if (performance.now() < introUntil) {
+            controls.autoRotate = true;
+            controls.autoRotateSpeed = 0.6;
+            requestAnimationFrame(intro);
+          } else {
+            controls.autoRotate = false;
+          }
+        })();
+      }
+
+      // ── PostMessage API for external control ──────────────────────────────────
+      /**
+       * Listen for commands from parent window (dashboard)
+       * Commands: updateState, setPosition, toggleBrush, togglePump
+       */
+      window.addEventListener("message", (event) => {
+        // Security: Only accept messages from same origin
+        if (event.origin !== window.location.origin) return;
+
+        const msg = event.data;
+        if (msg.type !== "3d-control") return;
+
+        const { command, data } = msg;
+
+        switch (command) {
+          case "updateState":
+            // Update full state from dashboard
+            if (data.fsm) {
+              const newFSM = data.fsm;
+              const oldFSM = state.fsm;
+              setFSM(newFSM);
+
+              // Update detailed ESP32 state if provided
+              if (data.esp32_state) {
+                const fsmDesc = document.getElementById("fsm-desc");
+                // Map ESP32 state (English) → deskripsi tampilan Bahasa Indonesia
+                const esp32Descriptions = {
+                  IDLE: "Siaga - Menunggu perintah",
+                  PRE_CHECK: "Pemeriksaan awal - Cek limit switch dan motor",
+                  MOVING_TO_START: "Bergerak ke posisi awal (LS1 atas)",
+                  SPRAYING_WATER: "Penyemprotan air - Pompa aktif",
+                  CLEANING_FORWARD:
+                    "Pembersihan maju - Wiper + brush bergerak ke bawah",
+                  CLEANING_BACKWARD:
+                    "Pembersihan mundur - Wiper kembali ke atas (pengeringan)",
+                  STOPPING: "Menghentikan - Mematikan semua motor",
+                  DONE: "Selesai - Pembersihan selesai",
+                  ERROR_STATE: "Error - Terjadi kesalahan",
+                };
+                if (fsmDesc && esp32Descriptions[data.esp32_state]) {
+                  fsmDesc.textContent = esp32Descriptions[data.esp32_state];
+                }
+              }
+
+              // Auto-animate based on FSM state changes
+              if (newFSM === "HOMING" && oldFSM !== "HOMING") {
+                // Start homing animation - move to top (LS1)
+                state.target_mm = TRAVEL_MM; // Move to top
+                console.log("[3D] Homing started - moving to top");
+              } else if (
+                newFSM === "CLEANING_DOWN" &&
+                oldFSM !== "CLEANING_DOWN"
+              ) {
+                // Start cleaning down - move to bottom (LS2)
+                state.target_mm = 0; // Move to bottom
+                state.brush_active = true;
+                console.log("[3D] Cleaning down started - moving to bottom");
+              } else if (newFSM === "CLEANING_UP" && oldFSM !== "CLEANING_UP") {
+                // Cleaning up - move back to top (LS1)
+                state.target_mm = TRAVEL_MM; // Move to top
+                state.brush_active = true;
+                console.log("[3D] Cleaning up started - moving to top");
+              } else if (newFSM === "RETURNING" && oldFSM !== "RETURNING") {
+                // Returning/stopping - stop brush
+                state.brush_active = false;
+                console.log("[3D] Returning/stopping");
+              } else if (newFSM === "IDLE" && oldFSM !== "IDLE") {
+                // Back to idle - stop everything
+                state.brush_active = false;
+                state.pump_active = false;
+                console.log("[3D] Back to idle");
+              }
+            }
+
+            // Posisi dari parent = position_mm server (mm dari ATAS, 0=atas).
+            // Saat LIVE, iframe punya koneksi WS sendiri (berbasis encoder, lebih
+            // akurat & arah benar) → ABAIKAN agar tidak bentrok konvensi. Saat
+            // TIDAK live, konversi ke konvensi internal (TRAVEL_MM=atas, 0=bawah).
+            if (!state.live && typeof data.position_mm === "number") {
+              const internalMM = Math.max(
+                0,
+                Math.min(TRAVEL_MM, TRAVEL_MM - data.position_mm),
+              );
+              state.position_mm = internalMM;
+              state.target_mm = internalMM;
+            }
+
+            if (typeof data.rpm === "number") state.rpm = data.rpm;
+            if (typeof data.brush_rpm === "number")
+              state.brush_rpm = data.brush_rpm;
+            if (typeof data.brush_active === "boolean")
+              state.brush_active = data.brush_active;
+            if (typeof data.pump_active === "boolean")
+              state.pump_active = data.pump_active;
+            if (typeof data.estop === "boolean") state.estop = data.estop;
+            break;
+
+          case "setPosition":
+            // Posisi dari parent (server, mm dari ATAS). Saat LIVE diabaikan
+            // (WS iframe authoritative); saat TIDAK live dikonversi ke internal.
+            if (!state.live && typeof data.position_mm === "number") {
+              const internalMM = Math.max(
+                0,
+                Math.min(TRAVEL_MM, TRAVEL_MM - data.position_mm),
+              );
+              state.position_mm = internalMM;
+              state.target_mm = internalMM;
+            }
+            break;
+
+          case "toggleBrush":
+            // Toggle brush motor
+            if (typeof data.active === "boolean") {
+              state.brush_active = data.active;
+            }
+            break;
+
+          case "togglePump":
+            // Toggle water pump
+            if (typeof data.active === "boolean") {
+              state.pump_active = data.active;
+            }
+            break;
+
+          case "emergencyStop":
+            // Trigger emergency stop
+            triggerEstop();
+            break;
+
+          default:
+            console.warn("[3D] Unknown command:", command);
+        }
+      });
+
+      console.log(
+        "[3D Visualization] Ready - listening for commands from parent window",
+      );
+    </script>
+  </body>
+</html>

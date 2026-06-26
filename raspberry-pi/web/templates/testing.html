@@ -1,0 +1,1106 @@
+{% extends "base.html" %} {% block title %}System Testing - Solar Panel
+Cleaner{% endblock %} {% block extra_css %}
+<style>
+  .testing-layout {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 20px;
+    min-width: 0;
+  }
+  .test-section {
+    background: #fff;
+    padding: 20px;
+    margin-bottom: 20px;
+    border-left: 3px solid #003d7a;
+  }
+  .test-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-top: 15px;
+  }
+  .test-item {
+    padding: 15px;
+    border: 2px solid #e0e0e0;
+    background: #f9f9f9;
+  }
+  .test-item h4 {
+    color: #003d7a;
+    margin-bottom: 8px;
+    font-size: 13px;
+    text-transform: uppercase;
+  }
+  .test-item p {
+    color: #666;
+    font-size: 12px;
+    margin-bottom: 12px;
+    line-height: 1.4;
+  }
+  .test-status {
+    padding: 6px 10px;
+    margin-bottom: 8px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .test-status.success {
+    background: #d4edda;
+    color: #155724;
+  }
+  .test-status.error {
+    background: #f8d7da;
+    color: #721c24;
+  }
+  .test-status.testing {
+    background: #fff3cd;
+    color: #856404;
+  }
+  .emergency-section {
+    background: #fff3cd;
+    border-left: 3px solid #ffc107;
+    padding: 15px;
+    margin-bottom: 20px;
+  }
+  .emergency-section h3 {
+    color: #856404;
+    margin-bottom: 8px;
+    font-size: 14px;
+  }
+  .log-panel {
+    position: sticky;
+    top: 20px;
+    align-self: start;
+  }
+  .log-box {
+    background: #ffffff;
+    color: #333;
+    padding: 12px;
+    font-family: "Consolas", monospace;
+    font-size: 11px;
+    height: calc(100vh - 200px);
+    overflow-y: auto;
+    line-height: 1.6;
+    border: 1px solid #e0e0e0;
+    border-left: 3px solid #003d7a;
+  }
+  .log-box div {
+    border-bottom: 1px solid #f0f0f0;
+    padding: 2px 0;
+  }
+  @media (max-width: 768px) {
+    .testing-layout {
+      grid-template-columns: 1fr !important;
+      gap: 15px !important;
+      min-width: 0 !important;
+      width: 100% !important;
+      overflow: hidden;
+    }
+    .testing-layout > div {
+      min-width: 0;
+      width: 100%;
+      overflow: hidden;
+    }
+    .test-grid {
+      grid-template-columns: 1fr !important;
+      min-width: 0 !important;
+    }
+    .pid-controls-grid {
+      grid-template-columns: 1fr !important;
+      gap: 12px !important;
+    }
+    .log-box {
+      height: 300px;
+    }
+    .log-panel {
+      position: static;
+    }
+    .emergency-section {
+      padding: 12px;
+      min-width: 0;
+      width: 100%;
+    }
+    .emergency-section > div {
+      gap: 8px !important;
+      width: 100%;
+    }
+    .test-section {
+      padding: 15px;
+      min-width: 0;
+      width: 100%;
+    }
+    .test-item {
+      padding: 12px;
+      min-width: 0;
+      width: 100%;
+    }
+    .test-item h4 {
+      font-size: 12px;
+    }
+    .test-item p {
+      font-size: 11px;
+    }
+  }
+</style>
+{% endblock %} {% block content %}
+
+<!-- Cleaning Lock Banner -->
+<div id="cleaningLockBanner" class="banner banner-warning hidden">
+  <div class="banner-title">Testing Terkunci</div>
+  <div class="lock-message banner-text">
+    Pembersihan otomatis sedang berlangsung. Testing tidak dapat dilakukan
+    hingga selesai.
+  </div>
+</div>
+
+<!-- PID Logging Lock Banner -->
+<div id="pidLockBanner" class="banner banner-success hidden">
+  <div class="banner-title">PID Data Logger Aktif</div>
+  <div class="banner-text">
+    Test ESP32 hardware dinonaktifkan selama PID logging berlangsung untuk
+    menghindari konflik serial dan motor.
+  </div>
+</div>
+
+<div class="testing-layout">
+  <!-- Left: Tests -->
+  <div>
+    <!-- Emergency -->
+    <div class="emergency-section">
+      <div class="flex-wrap-10">
+        <button
+          class="btn btn-danger"
+          id="btnEmergency"
+          onclick="emergencyStop()"
+        >
+          EMERGENCY STOP
+        </button>
+        <button class="btn btn-success" id="btnRunAll" onclick="runAllTests()">
+          Run All Tests
+        </button>
+        <button class="btn btn-outline" id="btnReset" onclick="resetAllTests()">
+          Reset All
+        </button>
+      </div>
+    </div>
+
+    <!-- ESP32 Hardware -->
+    <div class="test-section">
+      <h2 class="section-title">ESP32 Hardware</h2>
+      <div class="test-grid">
+        <div class="test-item">
+          <h4>1. ESP32 Connection</h4>
+          <p>Test koneksi serial ke ESP32</p>
+          <div class="test-status" id="status-esp32-connection">Not tested</div>
+          <button class="btn" onclick="testESP32Connection()">Test</button>
+        </div>
+        <div class="test-item">
+          <h4>2. Limit Switches</h4>
+          <p>
+            Tekan limit switch secara manual, lalu klik Test untuk baca status
+          </p>
+          <div class="test-status" id="status-ls1">LS1 (Atas): Not tested</div>
+          <div class="test-status" id="status-ls2">LS2 (Bawah): Not tested</div>
+          <div class="btn-row-sm">
+            <button class="btn" onclick="testLS('ls1')">Test LS1</button>
+            <button class="btn" onclick="testLS('ls2')">Test LS2</button>
+            <button class="btn btn-outline" onclick="testLS('both')">
+              Test Keduanya
+            </button>
+          </div>
+        </div>
+        <div class="test-item">
+          <h4>3. Encoder</h4>
+          <p>
+            Putar motor wiper secara manual, klik Test — sampling 2 detik untuk
+            baca RPM dan pulse
+          </p>
+          <div class="test-status" id="status-encoder-rpm">RPM: Not tested</div>
+          <div class="test-status" id="status-encoder-pulse">
+            Pulses: Not tested
+          </div>
+          <div class="btn-row-sm">
+            <button class="btn" onclick="testEncoderOnce()">Test Sekali</button>
+            <button
+              class="btn btn-outline"
+              id="btnEncoderLive"
+              onclick="toggleEncoderLive()"
+            >
+              Live Monitor
+            </button>
+          </div>
+        </div>
+        <div class="test-item">
+          <h4>4. Motor Wiper</h4>
+          <p>
+            Homing mengembalikan wiper ke posisi atas (LS1). Atau gerakkan
+            manual naik (ke LS1 atas) / turun (ke LS2 bawah). Berhenti otomatis
+            di limit switch.
+          </p>
+          <div class="test-status" id="status-motor-wiper">Not tested</div>
+          <div
+            class="btn-group"
+            style="display: flex; gap: 8px; flex-wrap: wrap"
+          >
+            <button class="btn btn-outline" onclick="testHoming()">
+              Homing (ke Atas)
+            </button>
+            <button class="btn btn-outline" onclick="testMotorWiper('naik')">
+              Naik
+            </button>
+            <button class="btn btn-outline" onclick="testMotorWiper('turun')">
+              Turun
+            </button>
+          </div>
+        </div>
+        <div class="test-item">
+          <h4>5. Motor Sikat</h4>
+          <p>Motor akan berputar sebentar</p>
+          <div class="test-status" id="status-motor-brush">Not tested</div>
+          <button class="btn btn-outline" onclick="testMotorBrush()">
+            Test
+          </button>
+        </div>
+        <div class="test-item">
+          <h4>6. Pompa Air</h4>
+          <p>Pompa menyala 3 detik</p>
+          <div class="test-status" id="status-pump">Not tested</div>
+          <button class="btn btn-outline" onclick="testPump()">Test</button>
+        </div>
+        <div class="test-item">
+          <h4>7. Cleaning Cycle</h4>
+          <p>Siklus pembersihan lengkap</p>
+          <div class="test-status" id="status-cleaning-cycle">Not tested</div>
+          <button class="btn btn-outline" onclick="testCleaningCycle()">
+            Test
+          </button>
+        </div>
+        <div class="test-item">
+          <h4>8. Uji Pembersihan Adaptif</h4>
+          <p>
+            Menjalankan siklus pembersihan sesuai level (Ringan/Sedang/Berat):
+            kecepatan wiper, putaran sikat, dan pompa menyesuaikan tingkat
+            kekotoran. Setelah selesai, sistem memverifikasi hasil lewat deteksi
+            kamera. Pantau Dashboard &amp; visualisasi 3D saat berjalan.
+          </p>
+          <div class="test-status" id="status-clean-demo">Belum dijalankan</div>
+          <div
+            style="display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px"
+          >
+            <button
+              class="btn btn-outline"
+              onclick="triggerCleaningLevel('ringan')"
+            >
+              Ringan
+            </button>
+            <button
+              class="btn btn-outline"
+              onclick="triggerCleaningLevel('sedang')"
+            >
+              Sedang
+            </button>
+            <button
+              class="btn btn-outline"
+              onclick="triggerCleaningLevel('berat')"
+            >
+              Berat
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Camera & Detection -->
+    <div class="test-section">
+      <h2 class="section-title">Camera & Detection</h2>
+      <div class="test-grid">
+        <div class="test-item">
+          <h4>1. Camera</h4>
+          <p>Test kamera</p>
+          <div class="test-status" id="status-camera">Not tested</div>
+          <button class="btn" onclick="testCamera()">Test</button>
+        </div>
+        <div class="test-item">
+          <h4>2. YOLO Model</h4>
+          <p>Test model YOLO</p>
+          <div class="test-status" id="status-yolo">Not tested</div>
+          <button class="btn" onclick="testYOLO()">Test</button>
+        </div>
+        <div class="test-item">
+          <h4>3. Detection</h4>
+          <p>Test deteksi pada frame</p>
+          <div class="test-status" id="status-detection">Not tested</div>
+          <button class="btn" onclick="testDetection()">Test</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- System -->
+    <div class="test-section">
+      <h2 class="section-title">System</h2>
+      <div class="test-grid">
+        <div class="test-item">
+          <h4>1. Serial</h4>
+          <p>Test komunikasi serial</p>
+          <div class="test-status" id="status-serial">Not tested</div>
+          <button class="btn" onclick="testSerial()">Test</button>
+        </div>
+        <div class="test-item">
+          <h4>2. Config</h4>
+          <p>Test konfigurasi</p>
+          <div class="test-status" id="status-config">Not tested</div>
+          <button class="btn" onclick="testConfig()">Test</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PID Data Logger — DISEMBUNYIKAN.
+         Pengambilan data step response PID untuk Bab 4 dilakukan via tool
+         khusus motor_test_gui (lebih akurat: 20 Hz, metrik otomatis, export
+         CSV/TXT/PNG). Section ini disembunyikan agar tidak duplikat.
+         Kode JS/backend dibiarkan dorman (tidak mengganggu). -->
+    <div class="test-section" style="display: none">
+      <h2 class="section-title">PID Data Logger</h2>
+      <p style="color: #666; font-size: 12px; margin-bottom: 15px">
+        Log RPM data untuk analisis respons step PID
+      </p>
+
+      <div
+        class="pid-controls-grid"
+        style="
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 15px;
+          margin-bottom: 15px;
+        "
+      >
+        <!-- Controls -->
+        <div style="padding: 15px; border: 1px solid #ddd; background: #f9f9f9">
+          <h4 style="color: #003d7a; margin-bottom: 10px; font-size: 13px">
+            PARAMETER PENGUJIAN
+          </h4>
+
+          <div style="margin-bottom: 10px">
+            <label
+              style="
+                display: block;
+                font-size: 11px;
+                color: #666;
+                margin-bottom: 4px;
+              "
+            >
+              Setpoint (RPM)
+            </label>
+            <select
+              id="pidSetpoint"
+              class="form-control"
+              style="width: 100%; padding: 6px; font-size: 12px"
+            >
+              <option value="30">30 RPM</option>
+              <option value="45">45 RPM</option>
+            </select>
+          </div>
+
+          <div style="margin-bottom: 10px">
+            <label
+              style="
+                display: block;
+                font-size: 11px;
+                color: #666;
+                margin-bottom: 4px;
+              "
+            >
+              Kondisi Pengujian
+            </label>
+            <select
+              id="pidTestName"
+              class="form-control"
+              style="width: 100%; padding: 6px; font-size: 12px"
+            >
+              <option value="step_response">Tanpa Beban</option>
+              <option value="with_load">Dengan Beban</option>
+              <option value="cleaning_cycle">Siklus Pembersihan</option>
+            </select>
+          </div>
+
+          <div style="display: flex; gap: 8px">
+            <button class="btn" id="btnStartPID" onclick="startPIDLogging()">
+              Mulai Logging
+            </button>
+            <button
+              class="btn btn-outline"
+              id="btnStopPID"
+              onclick="stopPIDLogging()"
+              disabled
+            >
+              Berhenti
+            </button>
+          </div>
+        </div>
+
+        <!-- Status -->
+        <div style="padding: 15px; border: 1px solid #ddd; background: #f9f9f9">
+          <h4 style="color: #003d7a; margin-bottom: 10px; font-size: 13px">
+            STATUS LOGGING
+          </h4>
+
+          <div style="font-size: 11px; line-height: 1.8">
+            <div>
+              <strong>Status:</strong> <span id="pidStatus">Berhenti</span>
+            </div>
+            <div>
+              <strong>Setpoint:</strong>
+              <span id="pidSetpointDisplay">-</span> RPM
+            </div>
+            <div>
+              <strong>RPM Aktual:</strong> <span id="pidCurrentRPM">-</span> RPM
+            </div>
+            <div>
+              <strong>Data Points:</strong> <span id="pidDataPoints">0</span>
+            </div>
+            <div>
+              <strong>Waktu:</strong> <span id="pidElapsedTime">0.0</span> s
+            </div>
+          </div>
+
+          <button
+            class="btn btn-outline"
+            id="btnExportPID"
+            onclick="exportPIDData()"
+            disabled
+            style="margin-top: 10px; width: 100%"
+          >
+            Ekspor Data
+          </button>
+        </div>
+      </div>
+
+      <!-- Chart -->
+      <div style="padding: 15px; border: 1px solid #ddd; background: #fff">
+        <h4 style="color: #003d7a; margin-bottom: 10px; font-size: 13px">
+          RPM vs TIME
+        </h4>
+        <canvas id="pidChart" style="max-height: 300px"></canvas>
+      </div>
+
+      <!-- Results Panel -->
+      <div
+        style="
+          padding: 15px;
+          border: 1px solid #ddd;
+          background: #fff;
+          margin-top: 15px;
+        "
+        id="pidResultsPanel"
+      >
+        <h4 style="color: #003d7a; margin-bottom: 10px; font-size: 13px">
+          HASIL ANALISIS RESPONS TRANSIEN
+        </h4>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px">
+          <!-- Parameter Transien -->
+          <div>
+            <h5
+              style="
+                color: #666;
+                font-size: 11px;
+                margin-bottom: 8px;
+                font-weight: bold;
+              "
+            >
+              Parameter Transien
+            </h5>
+            <table
+              style="width: 100%; font-size: 11px; border-collapse: collapse"
+            >
+              <tr style="border-bottom: 1px solid #ddd">
+                <td style="padding: 6px 0; color: #666">
+                  Rise Time (t<sub>r</sub>)
+                </td>
+                <td
+                  style="padding: 6px 0; text-align: right; font-weight: bold"
+                >
+                  <span id="resultRiseTime">-</span> s
+                </td>
+              </tr>
+              <tr style="border-bottom: 1px solid #ddd">
+                <td style="padding: 6px 0; color: #666">Overshoot</td>
+                <td
+                  style="padding: 6px 0; text-align: right; font-weight: bold"
+                >
+                  <span id="resultOvershoot">-</span> %
+                </td>
+              </tr>
+              <tr style="border-bottom: 1px solid #ddd">
+                <td style="padding: 6px 0; color: #666">
+                  Settling Time (t<sub>s</sub>)
+                </td>
+                <td
+                  style="padding: 6px 0; text-align: right; font-weight: bold"
+                >
+                  <span id="resultSettlingTime">-</span> s
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 6px 0; color: #666">
+                  Steady-State Error (e<sub>ss</sub>)
+                </td>
+                <td
+                  style="padding: 6px 0; text-align: right; font-weight: bold"
+                >
+                  <span id="resultSSE">-</span> RPM
+                </td>
+              </tr>
+            </table>
+          </div>
+
+          <!-- Statistik -->
+          <div>
+            <h5
+              style="
+                color: #666;
+                font-size: 11px;
+                margin-bottom: 8px;
+                font-weight: bold;
+              "
+            >
+              Statistik RPM
+            </h5>
+            <table
+              style="width: 100%; font-size: 11px; border-collapse: collapse"
+            >
+              <tr style="border-bottom: 1px solid #ddd">
+                <td style="padding: 6px 0; color: #666">Mean RPM</td>
+                <td
+                  style="padding: 6px 0; text-align: right; font-weight: bold"
+                >
+                  <span id="resultMeanRPM">-</span> RPM
+                </td>
+              </tr>
+              <tr style="border-bottom: 1px solid #ddd">
+                <td style="padding: 6px 0; color: #666">Std Dev</td>
+                <td
+                  style="padding: 6px 0; text-align: right; font-weight: bold"
+                >
+                  <span id="resultStdDev">-</span> RPM
+                </td>
+              </tr>
+              <tr style="border-bottom: 1px solid #ddd">
+                <td style="padding: 6px 0; color: #666">Min RPM</td>
+                <td
+                  style="padding: 6px 0; text-align: right; font-weight: bold"
+                >
+                  <span id="resultMinRPM">-</span> RPM
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 6px 0; color: #666">Max RPM</td>
+                <td
+                  style="padding: 6px 0; text-align: right; font-weight: bold"
+                >
+                  <span id="resultMaxRPM">-</span> RPM
+                </td>
+              </tr>
+            </table>
+          </div>
+        </div>
+
+        <div
+          style="
+            margin-top: 12px;
+            padding: 10px;
+            background: #f0f8ff;
+            border-left: 3px solid #003d7a;
+          "
+        >
+          <div style="font-size: 11px; color: #666">
+            <strong>Info Test:</strong>
+            <span id="resultTestInfo"
+              >Belum ada data. Jalankan test terlebih dahulu.</span
+            >
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right: Log Panel -->
+  <div class="log-panel">
+    <div
+      style="display: flex; justify-content: space-between; align-items: center"
+    >
+      <h2 class="section-title" style="margin: 0">Test Log</h2>
+      <button
+        class="btn btn-outline"
+        onclick="clearLog()"
+        style="padding: 4px 12px; font-size: 11px"
+      >
+        Clear Log
+      </button>
+    </div>
+    <div class="log-box" id="testLog" style="margin-top: 8px"></div>
+  </div>
+</div>
+{% endblock %} {% block extra_js %}
+<script src="/static/js/chart.umd.min.js"></script>
+<script src="/static/js/testing.js?v=4.1"></script>
+<script>
+  // PID Logger Variables
+  let pidChart = null;
+  let pidChartData = {
+    labels: [],
+    datasets: [
+      {
+        label: "Setpoint",
+        data: [],
+        borderColor: "#003d7a",
+        backgroundColor: "rgba(0, 61, 122, 0.1)",
+        borderWidth: 2,
+        borderDash: [5, 5],
+        pointRadius: 0,
+        tension: 0,
+      },
+      {
+        label: "Actual RPM",
+        data: [],
+        borderColor: "#28a745",
+        backgroundColor: "rgba(40, 167, 69, 0.1)",
+        borderWidth: 2,
+        pointRadius: 1,
+        tension: 0.1,
+      },
+    ],
+  };
+
+  // ===== PID SESSION PERSISTENCE =====
+  function savePIDChartToSession() {
+    try {
+      sessionStorage.setItem(
+        "pidChartLabels",
+        JSON.stringify(pidChartData.labels),
+      );
+      sessionStorage.setItem(
+        "pidChartSetpoint",
+        JSON.stringify(pidChartData.datasets[0].data),
+      );
+      sessionStorage.setItem(
+        "pidChartActual",
+        JSON.stringify(pidChartData.datasets[1].data),
+      );
+    } catch (e) {
+      console.warn("[PID] sessionStorage save error:", e);
+    }
+  }
+
+  function savePIDResultsToSession(report) {
+    try {
+      sessionStorage.setItem("pidReport", JSON.stringify(report));
+    } catch (e) {
+      console.warn("[PID] sessionStorage save error:", e);
+    }
+  }
+
+  function savePIDStatusToSession(statusText, color) {
+    try {
+      sessionStorage.setItem("pidStatusText", statusText);
+      sessionStorage.setItem("pidStatusColor", color);
+    } catch (e) {}
+  }
+
+  function restorePIDFromSession() {
+    try {
+      // Restore chart data
+      const labels = JSON.parse(
+        sessionStorage.getItem("pidChartLabels") || "[]",
+      );
+      const setpoints = JSON.parse(
+        sessionStorage.getItem("pidChartSetpoint") || "[]",
+      );
+      const actuals = JSON.parse(
+        sessionStorage.getItem("pidChartActual") || "[]",
+      );
+
+      if (labels.length > 0) {
+        pidChartData.labels = labels;
+        pidChartData.datasets[0].data = setpoints;
+        pidChartData.datasets[1].data = actuals;
+        if (pidChart) pidChart.update("none");
+
+        // Restore last data point display
+        if (actuals.length > 0) {
+          document.getElementById("pidCurrentRPM").textContent = parseFloat(
+            actuals[actuals.length - 1],
+          ).toFixed(2);
+          document.getElementById("pidDataPoints").textContent = actuals.length;
+          document.getElementById("pidElapsedTime").textContent =
+            labels[labels.length - 1];
+        }
+      }
+
+      // Restore report results
+      const reportJson = sessionStorage.getItem("pidReport");
+      if (reportJson) {
+        const report = JSON.parse(reportJson);
+        displayPIDResults(report);
+        // Enable export button since we have data
+        document.getElementById("btnExportPID").disabled = false;
+      }
+
+      // Restore status text
+      const statusText = sessionStorage.getItem("pidStatusText");
+      const statusColor = sessionStorage.getItem("pidStatusColor");
+      if (statusText) {
+        document.getElementById("pidStatus").textContent = statusText;
+        document.getElementById("pidStatus").style.color =
+          statusColor || "#666";
+      }
+
+      // Restore setpoint display
+      if (setpoints.length > 0) {
+        document.getElementById("pidSetpointDisplay").textContent =
+          setpoints[0];
+      }
+    } catch (e) {
+      console.warn("[PID] sessionStorage restore error:", e);
+    }
+  }
+
+  function clearPIDSession() {
+    sessionStorage.removeItem("pidChartLabels");
+    sessionStorage.removeItem("pidChartSetpoint");
+    sessionStorage.removeItem("pidChartActual");
+    sessionStorage.removeItem("pidReport");
+    sessionStorage.removeItem("pidStatusText");
+    sessionStorage.removeItem("pidStatusColor");
+  }
+
+  // Initialize PID Chart
+  document.addEventListener("DOMContentLoaded", function () {
+    const ctx = document.getElementById("pidChart").getContext("2d");
+    pidChart = new Chart(ctx, {
+      type: "line",
+      data: pidChartData,
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        animation: false,
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: "Time (s)",
+            },
+            ticks: {
+              maxTicksLimit: 10,
+            },
+          },
+          y: {
+            title: {
+              display: true,
+              text: "RPM",
+            },
+            beginAtZero: true,
+          },
+        },
+        plugins: {
+          legend: {
+            display: true,
+            position: "top",
+          },
+        },
+      },
+    });
+
+    // Restore PID data from previous session
+    restorePIDFromSession();
+  });
+
+  // ===== PID WebSocket Connection =====
+  let pidWs = null;
+  let pidWsReconnectTimer = null;
+
+  function connectPIDWebSocket() {
+    if (pidWs && pidWs.readyState === WebSocket.OPEN) return;
+
+    const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+    pidWs = new WebSocket(`${protocol}//${location.host}/ws/pid`);
+
+    pidWs.onopen = () => {
+      console.log("[PID WS] Connected");
+    };
+
+    pidWs.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        handlePIDMessage(msg);
+      } catch (e) {
+        console.error("[PID WS] Parse error:", e);
+      }
+    };
+
+    pidWs.onclose = () => {
+      console.log("[PID WS] Disconnected");
+      pidWs = null;
+      // Release PID lock if WS drops during logging (server auto-stops motor)
+      if (pidLoggingActive) {
+        setPIDLoggingLock(false);
+        document.getElementById("pidStatus").textContent = "Terputus";
+        document.getElementById("pidStatus").style.color = "#dc3545";
+        document.getElementById("btnStartPID").disabled = false;
+        document.getElementById("btnStopPID").disabled = true;
+        addLog(
+          "[PID] WebSocket terputus — motor dihentikan otomatis oleh server",
+        );
+      }
+      // Auto-reconnect after 2s if page is still open
+      if (!pidWsReconnectTimer) {
+        pidWsReconnectTimer = setTimeout(() => {
+          pidWsReconnectTimer = null;
+          connectPIDWebSocket();
+        }, 2000);
+      }
+    };
+
+    pidWs.onerror = (err) => {
+      console.error("[PID WS] Error:", err);
+    };
+  }
+
+  function handlePIDMessage(msg) {
+    switch (msg.type) {
+      case "started":
+        if (msg.success) {
+          addLog(`[PID] ${msg.message}`);
+          setPIDLoggingLock(true);
+        } else {
+          addLog(`[PID] Error: ${msg.message}`);
+          // Re-enable start button on failure
+          document.getElementById("btnStartPID").disabled = false;
+          document.getElementById("btnStopPID").disabled = true;
+          document.getElementById("pidStatus").textContent = "Gagal";
+          document.getElementById("pidStatus").style.color = "#dc3545";
+          setPIDLoggingLock(false);
+        }
+        break;
+
+      case "pid_data":
+        // Real-time data point pushed by server (~200ms interval)
+        if (msg.data_point) {
+          const dp = msg.data_point;
+
+          // Append to chart (incremental, no full redraw)
+          pidChartData.labels.push(dp.elapsed_time.toFixed(1));
+          pidChartData.datasets[0].data.push(dp.setpoint);
+          pidChartData.datasets[1].data.push(dp.rpm_actual);
+          pidChart.update("none");
+
+          // Update status display
+          document.getElementById("pidCurrentRPM").textContent =
+            dp.rpm_actual.toFixed(2);
+          document.getElementById("pidDataPoints").textContent =
+            msg.total_points;
+          document.getElementById("pidElapsedTime").textContent =
+            dp.elapsed_time.toFixed(1);
+
+          // Save to sessionStorage every ~1s (every 5th point at 200ms interval)
+          if (msg.total_points % 5 === 0) {
+            savePIDChartToSession();
+          }
+        }
+        break;
+
+      case "stopped":
+        // Release PID lock — re-enable ESP32 tests
+        setPIDLoggingLock(false);
+
+        // Update UI
+        document.getElementById("pidStatus").textContent = "Berhenti";
+        document.getElementById("pidStatus").style.color = "#666";
+        document.getElementById("btnStartPID").disabled = false;
+        document.getElementById("btnStopPID").disabled = true;
+        document.getElementById("btnExportPID").disabled = false;
+
+        // Save final chart data
+        savePIDChartToSession();
+        savePIDStatusToSession("Berhenti", "#666");
+
+        if (msg.report && msg.report.transient_response) {
+          const tr = msg.report.transient_response;
+          addLog(
+            `PID Logger — Logging berhenti. Data points: ${msg.report.data_points}`,
+          );
+          addLog(
+            `PID Logger — Rise Time: ${tr.rise_time_sec}s, Overshoot: ${tr.overshoot_percent}%`,
+          );
+          addLog(
+            `PID Logger — Settling Time: ${tr.settling_time_sec}s, SSE: ${tr.steady_state_error_rpm} RPM`,
+          );
+          displayPIDResults(msg.report, true);
+          savePIDResultsToSession(msg.report);
+        } else {
+          addLog(msg.message || "PID Logger — Logging stopped");
+        }
+        break;
+
+      case "exported":
+        if (msg.success) {
+          addLog("[PID] Data berhasil diekspor — downloading...");
+          // Trigger browser download for each file
+          downloadPIDFile(msg.files.csv_file, "CSV Data");
+          downloadPIDFile(msg.files.json_file, "JSON Report");
+          downloadPIDFile(msg.files.latex_file, "LaTeX Report");
+        } else {
+          addLog(`[PID] Error: ${msg.message}`);
+        }
+        break;
+
+      case "error":
+        addLog(`[PID] Error: ${msg.message}`);
+        break;
+    }
+  }
+
+  // Connect WebSocket on page load
+  connectPIDWebSocket();
+
+  // Start PID Logging (via WebSocket)
+  function startPIDLogging() {
+    // Block if another test is running or cleaning is active
+    if (testingInProgress) {
+      addLog("[PID] Tidak bisa mulai — test lain sedang berjalan");
+      showToast("Test sedang berjalan, tunggu selesai dulu", "warning");
+      return;
+    }
+    if (cleaningLocked) {
+      addLog(
+        "[PID] Tidak bisa mulai — pembersihan otomatis sedang berlangsung",
+      );
+      showToast("Pembersihan sedang berlangsung", "warning");
+      return;
+    }
+    if (encoderLiveInterval) {
+      addLog(
+        "[PID] Tidak bisa mulai — encoder live monitor aktif, matikan dulu",
+      );
+      showToast("Matikan encoder live monitor dulu", "warning");
+      return;
+    }
+
+    const setpoint = parseFloat(document.getElementById("pidSetpoint").value);
+    const testName = document.getElementById("pidTestName").value;
+
+    if (!pidWs || pidWs.readyState !== WebSocket.OPEN) {
+      addLog("[PID] WebSocket belum terhubung, mencoba reconnect...");
+      connectPIDWebSocket();
+      setTimeout(() => startPIDLogging(), 1000);
+      return;
+    }
+
+    // Update UI immediately
+    document.getElementById("pidStatus").textContent = "Logging...";
+    document.getElementById("pidStatus").style.color = "#28a745";
+    document.getElementById("pidSetpointDisplay").textContent = setpoint;
+    document.getElementById("btnStartPID").disabled = true;
+    document.getElementById("btnStopPID").disabled = false;
+    document.getElementById("btnExportPID").disabled = true;
+    savePIDStatusToSession("Logging...", "#28a745");
+
+    // Clear chart and session
+    pidChartData.labels = [];
+    pidChartData.datasets[0].data = [];
+    pidChartData.datasets[1].data = [];
+    pidChart.update();
+    clearPIDSession();
+
+    // Send start command via WebSocket
+    pidWs.send(
+      JSON.stringify({
+        type: "start",
+        setpoint: setpoint,
+        test_name: testName,
+      }),
+    );
+
+    addLog(`[PID] Starting @ ${setpoint} RPM (${testName})...`);
+  }
+
+  // Stop PID Logging (via WebSocket)
+  function stopPIDLogging() {
+    if (pidWs && pidWs.readyState === WebSocket.OPEN) {
+      pidWs.send(JSON.stringify({ type: "stop" }));
+    }
+    addLog("[PID] Stopping...");
+  }
+
+  // Display PID Results in Panel
+  function displayPIDResults(report, scroll = false) {
+    const tr = report.transient_response;
+    const stats = report.statistics;
+
+    // Update transient parameters
+    document.getElementById("resultRiseTime").textContent =
+      tr.rise_time_sec !== null ? tr.rise_time_sec.toFixed(3) : "N/A";
+    document.getElementById("resultOvershoot").textContent =
+      tr.overshoot_percent.toFixed(2);
+    document.getElementById("resultSettlingTime").textContent =
+      tr.settling_time_sec !== null ? tr.settling_time_sec.toFixed(3) : "N/A";
+    document.getElementById("resultSSE").textContent =
+      tr.steady_state_error_rpm.toFixed(2);
+
+    // Update statistics
+    document.getElementById("resultMeanRPM").textContent =
+      stats.mean_rpm.toFixed(2);
+    document.getElementById("resultStdDev").textContent =
+      stats.std_rpm.toFixed(2);
+    document.getElementById("resultMinRPM").textContent =
+      stats.min_rpm.toFixed(2);
+    document.getElementById("resultMaxRPM").textContent =
+      stats.max_rpm.toFixed(2);
+
+    // Update test info
+    const testInfo = `${report.test_name} @ ${report.setpoint} RPM | ${report.data_points} data points | ${report.duration_sec.toFixed(2)}s`;
+    document.getElementById("resultTestInfo").textContent = testInfo;
+
+    // Scroll to results only when explicitly requested (not on page restore)
+    if (scroll) {
+      document
+        .getElementById("pidResultsPanel")
+        .scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }
+
+  // Export PID Data (via WebSocket)
+  function exportPIDData() {
+    if (pidWs && pidWs.readyState === WebSocket.OPEN) {
+      pidWs.send(JSON.stringify({ type: "export" }));
+      addLog("[PID] Exporting data...");
+    } else {
+      // Fallback: use HTTP endpoint
+      fetch("/api/pid/export", { method: "POST" })
+        .then((r) => r.json())
+        .then((result) => {
+          if (result.success) {
+            addLog("[PID] Data berhasil diekspor — downloading...");
+            downloadPIDFile(result.files.csv_file, "CSV Data");
+            downloadPIDFile(result.files.json_file, "JSON Report");
+            downloadPIDFile(result.files.latex_file, "LaTeX Report");
+          } else {
+            addLog(`[PID] Error: ${result.message}`);
+          }
+        })
+        .catch((e) => addLog(`[PID] Error: ${e.message}`));
+    }
+  }
+
+  // Download a PID export file via the server download endpoint
+  function downloadPIDFile(filepath, label) {
+    if (!filepath) return;
+    // Normalize backslashes to forward slashes for URL
+    const urlPath = filepath.replace(/\\/g, "/");
+    const link = document.createElement("a");
+    link.href = `/api/pid/download/${encodeURI(urlPath)}`;
+    link.download = urlPath.split("/").pop();
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+</script>
+{% endblock %}

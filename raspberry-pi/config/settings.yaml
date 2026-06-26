@@ -1,0 +1,76 @@
+camera:
+  resolution:
+  - 1920
+  - 1080
+  fps: 30
+  rotation: 0
+  device_id: 0
+  # Pencahayaan: auto_exposure true = paksa auto-exposure/auto-gain (penting di
+  # Raspberry Pi/V4L2 agar tidak gelap). Set false untuk exposure manual.
+  auto_exposure: true
+  # Override opsional (biarkan kosong/null untuk pakai default driver):
+  brightness:        # contoh: 130 (0-255)
+  gain:              # contoh: 50
+  exposure:          # hanya dipakai bila auto_exposure: false
+detection:
+  use_two_stage: true
+  panel_model_path: models/panel_detection_best.pt
+  panel_confidence: 0.7
+  dirt_model_path: models/dirt_classification_best.pt
+  dirt_confidence: 0.7
+  model_path: models/yolo11n_solar.onnx
+  confidence_threshold: 0.5
+  interval_seconds: 1
+  enable_performance_logging: true
+cleaning:
+  strategy: weighted_area
+  weights:
+    bersih: 0
+    kotor_ringan: 1.0
+    kotor_sedang: 2.0
+    kotor_berat: 3.0
+  trigger_threshold: 70
+  cycles:
+    max_attempts: 5
+    verify_delay: 2
+    success_threshold: 70
+  cooldown_after_success: 300
+  monitor_interval: 300
+  verify_interval: 2
+monitoring:
+  # Jam kerja monitoring otomatis. Di luar rentang ini sistem tidak melakukan
+  # deteksi/pembersihan (hemat daya & sesuai kondisi pencahayaan siang hari).
+  # Default operasional 07:00-17:00 WIB (rentang siang yang aman untuk deteksi).
+  # Catatan: protokol pengujian Bab 4 memakai jendela 09.00-16.00 WIB (pagi/siang/sore).
+  # Dapat diubah dari antarmuka web. Format jam "HH:MM" (24 jam).
+  working_hours:
+    enabled: true
+    start: "07:00"
+    stop: "17:00"
+zones:
+  enabled: true
+  default_zones: []
+serial:
+  port: auto
+  baudrate: 115200
+  timeout: 1
+web:
+  host: 0.0.0.0
+  port: 5000
+  debug: false
+wifi:
+  client_interface: wlan0
+  ap_interface: uap0
+  lan_interface: eth0
+  ap_ip: 192.168.50.1
+auth:
+  enabled: true
+  admin_username: taridho
+  admin_password_hash: scrypt:32768:8:1$ompXAqx35VXGTS2D$d174b4f0f8a1a627d5182b8798a6852de5f2d1a61b611f5e2adac51c9d4c3412a5fb079b23e75bc6c5900008935856bc24b3da1b17adc8dfb0a0557d169a0776
+  secret_key: 94d141452cd83fc4bbe8a70cae65a5631e5a44378712f0daf398bb5279716525
+  session_hours: 12
+logging:
+  level: INFO
+  file: logs/app.log
+  max_bytes: 10485760
+  backup_count: 5

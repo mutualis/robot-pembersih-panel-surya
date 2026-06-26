@@ -1,0 +1,29 @@
+# Requirements for Windows Development
+# Minimal dependencies untuk testing web interface di Windows
+
+# Web Framework
+flask>=3.0.0
+flask-cors>=4.0.0
+flask-sock>=0.7.0
+simple-websocket>=1.0.0
+
+# Computer Vision (Windows compatible)
+opencv-python>=4.8.0
+numpy>=1.24.0
+
+# YAML Config
+pyyaml>=6.0
+
+# Serial Communication (optional, mock digunakan)
+pyserial>=3.5
+
+# Performance monitoring
+psutil>=5.9.0
+
+# Development Tools
+python-dotenv>=1.0.0
+
+# Note: 
+# - picamera2 TIDAK diinstall (Raspberry Pi only)
+# - ultralytics optional untuk dev mode (mock digunakan)
+# - flask-sock untuk native WebSocket (works offline)

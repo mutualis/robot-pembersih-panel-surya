@@ -1,0 +1,307 @@
+{% extends "base.html" %} {% block title %}Dashboard - Solar Panel Cleaner{%
+endblock %} {% block content %}
+<div class="grid">
+  <div>
+    <!-- Video Preview -->
+    <div class="section video-section">
+      <h2 class="section-title">Preview Kamera</h2>
+      <div class="preview-container" id="previewContainer">
+        <img id="preview" src="" alt="Camera Preview" />
+        <div
+          id="previewOff"
+          style="
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #1a1a2e;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+          "
+        >
+          <div style="color: #555; font-size: 18px; font-weight: 600">
+            PREVIEW MATI
+          </div>
+          <div style="color: #444; font-size: 12px; margin-top: 8px">
+            Monitoring otomatis tetap berjalan
+          </div>
+        </div>
+      </div>
+      <div class="controls">
+        <button
+          class="btn btn-success"
+          id="btnTogglePreview"
+          onclick="togglePreview()"
+        >
+          Nyalakan Preview
+        </button>
+        <button
+          class="btn btn-outline"
+          id="btnToggleDetection"
+          onclick="togglePreviewDetection()"
+          style="display: none"
+        >
+          Deteksi: OFF
+        </button>
+        <button class="btn" onclick="captureNow()">Capture & Analisis</button>
+        <button class="btn btn-outline" onclick="triggerCleaning()">
+          Deteksi &amp; Bersihkan
+        </button>
+        <button class="btn btn-danger" onclick="emergencyStop()">
+          EMERGENCY STOP
+        </button>
+      </div>
+    </div>
+
+    <!-- Cleaning Live Status -->
+    <div class="section" id="cleaningLive">
+      <h2 class="section-title">Proses Pembersihan</h2>
+      <div class="card card-accent-amber">
+        <!-- Progress bar -->
+        <div class="mb-15">
+          <div
+            style="
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 5px;
+              font-size: 12px;
+              color: #666;
+            "
+          >
+            <span>Progress</span>
+            <span id="liveProgressText">0%</span>
+          </div>
+          <div
+            style="
+              background: #e0e0e0;
+              height: 24px;
+              position: relative;
+              overflow: hidden;
+            "
+          >
+            <div
+              id="liveProgress"
+              style="
+                background: linear-gradient(90deg, #f4b41a 0%, #f39c12 100%);
+                height: 100%;
+                width: 0%;
+                transition: width 0.3s ease;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: #fff;
+                font-weight: 600;
+                font-size: 13px;
+              "
+            >
+              0%
+            </div>
+          </div>
+        </div>
+
+        <!-- Status display (ESP32 state) -->
+        <div
+          style="
+            margin-bottom: 15px;
+            padding: 10px 12px;
+            background: #f0f9ff;
+            border-left: 3px solid #0284c7;
+            font-size: 13px;
+            color: #0c4a6e;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+          "
+        >
+          <div style="display: flex; align-items: center; gap: 8px">
+            <span style="font-weight: 600; color: #0369a1" id="statusIcon"
+              >◇</span
+            >
+            <span id="statusText">Siaga - Menunggu perintah pembersihan</span>
+          </div>
+          <div
+            style="font-size: 11px; color: #0369a1; font-weight: 600"
+            id="wiperPosition"
+          >
+            Posisi: -- mm
+          </div>
+        </div>
+
+        <!-- Cleaning strategy info (level + pass) -->
+        <div
+          id="cleaningStrategy"
+          style="
+            margin-bottom: 15px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+          "
+        >
+          <span
+            id="cleaningLevelBadge"
+            style="
+              display: none;
+              padding: 3px 12px;
+              font-size: 12px;
+              font-weight: 600;
+              background: #fff3e0;
+              color: #e65100;
+            "
+            >Level: --</span
+          >
+          <span
+            id="cleaningPassBadge"
+            style="
+              display: none;
+              padding: 3px 12px;
+              font-size: 12px;
+              font-weight: 600;
+              background: #e3f2fd;
+              color: #1565c0;
+            "
+            >Pass: --</span
+          >
+        </div>
+
+        <!-- Hardware status row -->
+        <div class="hardware-status-grid hw-grid">
+          <div class="hw-stat">
+            <div class="hw-label">Wiper (aktual / target)</div>
+            <div class="hw-value" id="liveWiperRpm">Mati</div>
+          </div>
+          <div class="hw-stat">
+            <div class="hw-label">Brush (target)</div>
+            <div class="hw-value" id="liveBrushRpm">Mati</div>
+          </div>
+          <div class="hw-stat">
+            <div class="hw-label">Pompa</div>
+            <div class="hw-value" id="livePump">Mati</div>
+          </div>
+          <div class="hw-stat">
+            <div class="hw-label">Limit Switch</div>
+            <div class="hw-value" id="liveLS">LS1: - | LS2: -</div>
+          </div>
+        </div>
+
+        <!-- 3D Visualization -->
+        <div
+          style="
+            border: 1px solid #ddd;
+            border-radius: 0;
+            overflow: hidden;
+            background: #f5f5f5;
+          "
+        >
+          <iframe
+            src="/static/3d-visualization.html?v=2.1"
+            style="width: 100%; height: 500px; border: none; display: block"
+            id="visualization3D"
+            title="3D Solar Panel Cleaner Visualization"
+          >
+          </iframe>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <!-- Status Sistem -->
+    <div class="section">
+      <h2 class="section-title">Status Sistem</h2>
+      <div class="status-grid">
+        <div class="status-item">
+          <div class="status-label">Mode</div>
+          <div class="status-value" id="systemMode">Monitoring</div>
+        </div>
+        <div class="status-item">
+          <div class="status-label">ESP32</div>
+          <div class="status-value" id="esp32Status">Terputus</div>
+        </div>
+        <div class="status-item">
+          <div class="status-label">Kamera</div>
+          <div class="status-value" id="cameraStatus">--</div>
+        </div>
+        <div class="status-item">
+          <div class="status-label">YOLO Model</div>
+          <div class="status-value" id="yoloStatus">--</div>
+        </div>
+        <div class="status-item">
+          <div class="status-label">Serial Port</div>
+          <div class="status-value" id="serialStatus">--</div>
+        </div>
+        <div class="status-item">
+          <div class="status-label">Capture Terakhir</div>
+          <div class="status-value" id="lastCapture">--</div>
+        </div>
+        <div class="status-item">
+          <div class="status-label">Pembersihan</div>
+          <div class="status-value" id="cleaningStatus">Tidak Aktif</div>
+        </div>
+        <div class="status-item">
+          <div class="status-label">Pembersihan Terakhir</div>
+          <div class="status-value" id="lastCleaning">--</div>
+        </div>
+        <div class="status-item">
+          <div class="status-label">Cooldown</div>
+          <div class="status-value" id="cooldownStatus">--</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detection Result -->
+    <div class="section">
+      <h2 class="section-title">Hasil Deteksi Terakhir</h2>
+      <div class="detection-result" id="detectionResult">
+        <div class="detection-row">
+          <span class="detection-label">Panel Terdeteksi</span>
+          <span class="detection-value" id="panelDetected">--</span>
+        </div>
+        <div class="detection-row">
+          <span class="detection-label">Tingkat Kotoran</span>
+          <span class="detection-value" id="dirtLevel">--</span>
+        </div>
+        <div class="detection-row">
+          <span class="detection-label">Confidence</span>
+          <span class="detection-value" id="dirtConfidence">--</span>
+        </div>
+        <div class="detection-row">
+          <span class="detection-label">Weighted Score</span>
+          <span class="detection-value" id="weightedScore">--</span>
+        </div>
+        <div class="detection-row">
+          <span class="detection-label">Keputusan</span>
+          <span class="detection-value" id="decision">--</span>
+        </div>
+        <div class="detection-row">
+          <span class="detection-label">Waktu Deteksi</span>
+          <span class="detection-value" id="detectionTime">--</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Konfigurasi (view-only; ubah di halaman Settings) -->
+    <div class="section">
+      <h2 class="section-title">Konfigurasi</h2>
+      <div class="detection-result">
+        <div class="detection-row">
+          <span class="detection-label">Max Attempts</span>
+          <span class="detection-value" id="cfgMaxAttempts">--</span>
+        </div>
+        <div class="detection-row">
+          <span class="detection-label">Cooldown</span>
+          <span class="detection-value" id="cfgCooldown">--</span>
+        </div>
+        <div class="detection-row">
+          <span class="detection-label">Jam Kerja Monitoring</span>
+          <span class="detection-value" id="cfgWorkingHours">--</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

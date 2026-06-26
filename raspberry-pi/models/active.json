@@ -1,0 +1,4 @@
+{
+  "detection": "panel_detection_best.pt",
+  "classification": "dirt_classification_best.pt"
+}

@@ -1,0 +1,17 @@
+[Unit]
+Description=Solar Panel Cleaner - Auto Monitoring & Cleaning System
+After=network.target
+
+[Service]
+Type=simple
+User=mutualis
+WorkingDirectory=/home/mutualis/wipevision/raspberry-pi
+Environment="PATH=/home/mutualis/wipevision/raspberry-pi/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ExecStart=/home/mutualis/wipevision/raspberry-pi/venv/bin/python3 /home/mutualis/wipevision/raspberry-pi/main.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,4 @@
+# Rahasia / sertifikat — jangan pernah di-commit
+cloudflare.env
+*.env
+web/static/caddy-root-ca.crt
