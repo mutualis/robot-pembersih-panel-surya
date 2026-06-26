@@ -5,7 +5,7 @@ Implementasi Two-Stage Detection YOLOv11 dan Kendali PID pada Sistem Robot Pembe
 **Tugas Akhir D4 Teknologi Rekayasa Instrumentasi dan Kontrol**
 Universitas Gadjah Mada — 2026
 Penyusun: Muhammad Ridho Assidiqi (22/505759/SV/21913)
-Pembimbing: Dr. Atikah Surriani, S.T., M.T.
+Pembimbing: Dr. Ir. Atikah Surriani, S.T., M.Eng., IPM.
 
 ---
 
