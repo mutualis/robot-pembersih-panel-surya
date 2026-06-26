@@ -43,9 +43,9 @@ private:
 public:
     Motor(int pwm, int d1, int d2, int channel, float p, float i, float d);
     void init();
-    void setSpeed(float rpm);
-    void setSpeedOpenLoop(float rpm, float maxRPM); // For motors without encoder
-    void setPID(float p, float i, float d); // For tuning
+    void setSpeed(float rpm);                           // rpm > 0 = naik (LS1), rpm < 0 = turun (LS2), 0 = stop
+    void setSpeedOpenLoop(float rpm, float maxRPM);    // Kontrol open-loop (brush, tanpa encoder/PID)
+    void setPID(float p, float i, float d);             // Ubah gain PID saat runtime (kalibrasi)
     void stop();
     void updatePID(float measuredRPM);
     float getTargetRPM() { return targetRPM; }

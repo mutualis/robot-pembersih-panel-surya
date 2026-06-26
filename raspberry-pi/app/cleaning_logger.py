@@ -25,8 +25,13 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 
-# Pemetaan score → label level (konsisten dengan threshold sistem)
+# Pemetaan score → label level (konsisten dengan threshold di config.h dan controller.py)
 def score_to_level(score: float) -> str:
+    """Konversi weighted score YOLO ke label level kotoran.
+
+    Threshold: bersih < 70 <= ringan < 170 <= sedang < 270 <= berat.
+    Konsisten dengan CLEAN_SCORE_* di config.h.
+    """
     if score < 70:
         return "bersih"
     if score < 170:
@@ -85,6 +90,7 @@ class CleaningSessionLogger:
             print(f"[CleaningLogger] Gagal memuat riwayat: {e}")
 
     def _ensure_csv(self):
+        """Buat file CSV dengan baris header bila belum ada (idempoten)."""
         if not self.csv_file.exists():
             with open(self.csv_file, "w", newline="", encoding="utf-8") as f:
                 csv.writer(f).writerow(self.CSV_HEADER)
@@ -186,6 +192,7 @@ class CleaningSessionLogger:
     # API dipanggil web
     # ------------------------------------------------------------------
     def get_sessions(self) -> List[Dict]:
+        """Kembalikan daftar sesi terbaru (thread-safe, salinan list)."""
         with self._lock:
             return list(self._recent)
 

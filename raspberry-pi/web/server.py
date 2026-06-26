@@ -112,7 +112,14 @@ def create_app(controller, config):
     ws_state = WebSocketState()
     
     def _enrich_status(status):
-        """Add component info to status dict (shared by HTTP and WebSocket)"""
+        """Tambahkan info komponen hardware ke dict status (dipakai HTTP dan WebSocket).
+
+        Field yang ditambahkan: camera_type, camera_open, yolo_type, serial_port,
+        serial_open, esp32_connected, pid_logging_active. Fungsi ini juga memicu
+        reconnect bila kamera/ESP32 terdeteksi terputus (side-effect intentional).
+        Selalu kembalikan status (tidak raise), agar dashboard tetap bisa ditampilkan
+        meskipun salah satu komponen bermasalah.
+        """
         # Camera: check if camera object exists and is actually working
         with controller._camera_lock:
             if controller.camera is not None:
@@ -197,7 +204,12 @@ def create_app(controller, config):
         return status
     
     def background_status_broadcast():
-        """Background thread to broadcast status updates via WebSocket"""
+        """Thread latar untuk broadcast status ke semua klien WebSocket (10 Hz / 100 ms).
+
+        Thread ini hanya berjalan saat ada klien terhubung dan dihentikan bila
+        ws_state.status_thread_running = False. Klien yang terputus dihapus dari
+        ws_state.clients agar tidak memblokir broadcast ke klien lain.
+        """
         while ws_state.status_thread_running:
             try:
                 # Stop broadcasting if no clients connected

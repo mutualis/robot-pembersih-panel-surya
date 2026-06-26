@@ -228,7 +228,13 @@ class TwoStageDetector:
         return result
     
     def detect_zones(self, image: np.ndarray, zones: list) -> list:
-        """Run detection on the full image once, tag result with zone info."""
+        """Jalankan deteksi dua-tahap pada gambar penuh, lalu tandai hasil dengan info zona.
+
+        Model bekerja pada frame lengkap (bukan crop per zona) karena kamera
+        sudah diarahkan ke satu panel. Zona hanya metadata (id, nama) yang
+        diteruskan ke controller untuk identifikasi area. Jika zones kosong,
+        kembalikan satu hasil tanpa metadata zona.
+        """
         # Two-stage detection works on full image (panel detection + dirt classification)
         # Zone info is metadata only — the model handles the full frame
         result = self.detect(image)
@@ -380,6 +386,8 @@ class TwoStageDetector:
             
             if category not in category_counts:
                 category_counts[category] = 0
+            # Di-set ke 1 (bukan +=1) karena tiap inferensi hanya menghasilkan
+            # SATU prediksi top-1 — hitungan per kategori adalah 0 atau 1.
             category_counts[category] = 1
             
             # Calculate weighted score with confidence modulation (hybrid formula)
@@ -407,7 +415,13 @@ class TwoStageDetector:
         }
     
     def _fallback_classify(self, image: np.ndarray) -> Dict:
-        """Fallback classification using OpenCV (brightness analysis)"""
+        """Klasifikasi cadangan berbasis kecerahan OpenCV — dipakai bila model YOLO tidak tersedia.
+
+        Heuristik sederhana: rata-rata kecerahan grayscale dibandingkan threshold
+        untuk menentukan kategori. Akurasi jauh di bawah model YOLO (tidak melihat
+        jenis kotoran), tetapi mencegah sistem mati total bila model belum diload.
+        Dipanggil secara manual; pipeline utama tidak memanggil ini otomatis.
+        """
         # Convert to grayscale
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         

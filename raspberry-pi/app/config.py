@@ -51,7 +51,11 @@ class Config:
             return False
     
     def get(self, key: str, default=None):
-        """Get configuration value using dot notation"""
+        """Baca nilai konfigurasi dengan dot notation (mis. 'cleaning.monitor_interval').
+
+        Traversal berhenti dan mengembalikan `default` jika salah satu segmen
+        key tidak ada, bukan dict, atau nilainya None.
+        """
         keys = key.split('.')
         value = self.config
         for k in keys:
@@ -60,21 +64,26 @@ class Config:
             else:
                 return default
         return value if value is not None else default
-    
+
     def set(self, key: str, value: Any):
-        """Set configuration value using dot notation"""
+        """Tulis nilai konfigurasi dengan dot notation.
+
+        Dict perantara dibuat otomatis bila belum ada — aman untuk key nested
+        yang belum pernah di-set sebelumnya (mis. 'baru.seksi.nilai').
+        Perubahan hanya ada di memori sampai save() dipanggil.
+        """
         keys = key.split('.')
         config = self.config
-        
+
         # Navigate to the parent dict
         for k in keys[:-1]:
             if k not in config:
                 config[k] = {}
             config = config[k]
-        
+
         # Set the value
         config[keys[-1]] = value
-    
+
     def save(self) -> bool:
         """Save configuration to YAML file"""
         try:
@@ -87,7 +96,12 @@ class Config:
             return False
     
     def _default_config(self) -> Dict[str, Any]:
-        """Default configuration"""
+        """Konfigurasi bawaan — dikembalikan bila settings.yaml tidak ditemukan atau gagal di-parse.
+
+        Nilai di sini harus bisa membuat sistem berjalan minimal (deteksi, web server)
+        tanpa membutuhkan file konfigurasi manual. Setelah berjalan, simpan via save()
+        agar settings.yaml terbentuk dan bisa diedit.
+        """
         return {
             'camera': {
                 'resolution': [1920, 1080],

@@ -538,15 +538,19 @@ bool StateMachine::isMotorStalled() {
 }
 
 void StateMachine::calculateProgress() {
+    // Estimasi progres berbasis waktu (bukan posisi encoder) untuk kemudahan tampilan.
+    // 30 detik per pass adalah perkiraan kasar (durasi nyata bervariasi 20-50 s
+    // tergantung kecepatan cleaning dan level kotoran). Nilai di-constrain agar
+    // progres tidak "melompat" di atas batas masing-masing fase.
     if (currentState == CLEANING_FORWARD) {
         // Progress from 15% to 60%
         unsigned long elapsed = millis() - stateStartTime;
-        progress = 15 + (elapsed * 45 / 30000); // Assume 30s for forward
+        progress = 15 + (elapsed * 45 / 30000); // Estimasi 30 s untuk pass turun
         progress = constrain(progress, 15, 60);
     } else if (currentState == CLEANING_BACKWARD) {
         // Progress from 60% to 90%
         unsigned long elapsed = millis() - stateStartTime;
-        progress = 60 + (elapsed * 30 / 30000); // Assume 30s for backward
+        progress = 60 + (elapsed * 30 / 30000); // Estimasi 30 s untuk pass naik
         progress = constrain(progress, 60, 90);
     }
 }

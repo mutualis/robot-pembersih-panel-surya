@@ -47,11 +47,11 @@ private:
 public:
     SerialComm();
     void init();
-    void handleIncoming();
-    void sendStatus();
-    void sendStatusOnStateChange();  // Send status immediately on state change
-    void sendCompletion(unsigned long duration);
-    void sendPeriodicStatus();
+    void handleIncoming();          // Proses baris JSON dari Serial2 (RPi) dan Serial0 (USB)
+    void sendStatus();              // Kirim snapshot status penuh ke RPi dan USB monitor
+    void sendStatusOnStateChange(); // Panggil saat FSM berganti state (real-time dashboard)
+    void sendCompletion(unsigned long duration); // Kirim pesan "done" + durasi ke RPi
+    void sendPeriodicStatus();      // Kirim status periodik (10 Hz saat cleaning, heartbeat saat idle)
 };
 
 #endif // SERIAL_COMM_H
